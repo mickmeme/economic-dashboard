@@ -75,7 +75,7 @@ export default function InstrumentCard({ instrument, period, onSelect }) {
   })()
 
   return (
-    <div className="bg-[#141414] border border-[#222] rounded-lg p-3 hover:border-[#FFF97F] transition-all duration-200 flex flex-col gap-0.5 cursor-pointer" onClick={() => onSelect?.(instrument)}>
+    <div className="bg-[#141414] border border-[#222] rounded-lg p-3 hover:border-[#FFF97F] transition-all duration-200 flex flex-col gap-0.5 cursor-pointer min-h-[110px]" onClick={() => onSelect?.(instrument)}>
       <div className="flex items-stretch gap-2">
         {/* Left: name + inline ring / ticker / price */}
         <div className="flex flex-col justify-between min-w-0 flex-1">
