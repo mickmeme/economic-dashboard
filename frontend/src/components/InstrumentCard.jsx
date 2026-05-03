@@ -86,7 +86,7 @@ export default function InstrumentCard({ instrument, period, onSelect }) {
             )}
           </div>
           <span className="text-[10px] text-[#444] font-mono uppercase tracking-wider truncate mt-0.5">{displayId}</span>
-          <div className="flex items-center gap-1.5 mt-1">
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-1">
             <span className="text-sm font-bold text-white leading-tight">
               {instrument.price != null
                 ? instrument.price.toLocaleString(undefined, { maximumFractionDigits: 2 })
