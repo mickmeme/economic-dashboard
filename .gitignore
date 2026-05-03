@@ -1,0 +1,14 @@
+# Claude Code settings
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+
+# Virtual environment
+backend/venv/
+
+# Logs & errors
+*.log
+*.err

@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Suit body -->
+  <ellipse cx="50" cy="97" rx="30" ry="13" fill="#1A1A2E"/>
+  <!-- Suit jacket -->
+  <path d="M22 95 Q28 82 50 80 Q72 82 78 95Z" fill="#2A2A4A"/>
+  <!-- White shirt + tie -->
+  <path d="M42 85 Q50 80 58 85 L55 95 L50 90 L45 95Z" fill="#F0F0F0"/>
+  <polygon points="50,82 53,88 50,92 47,88" fill="#E53E3E"/>
+
+  <!-- Head -->
+  <ellipse cx="50" cy="50" rx="34" ry="32" fill="#5C9840"/>
+
+  <!-- Eye bumps -->
+  <ellipse cx="35" cy="26" rx="13" ry="11" fill="#5C9840"/>
+  <ellipse cx="65" cy="26" rx="13" ry="11" fill="#5C9840"/>
+
+  <!-- Eye whites -->
+  <ellipse cx="35" cy="28" rx="9.5" ry="8.5" fill="#FFFFFF"/>
+  <ellipse cx="65" cy="28" rx="9.5" ry="8.5" fill="#FFFFFF"/>
+
+  <!-- Heavy upper eyelids — confident/smug look -->
+  <path d="M25.5 26 Q35 17 44.5 26 Z" fill="#4A7D32"/>
+  <path d="M55.5 26 Q65 17 74.5 26 Z" fill="#4A7D32"/>
+
+  <!-- Pupils looking forward -->
+  <circle cx="35" cy="30" r="4.5" fill="#111"/>
+  <circle cx="65" cy="30" r="4.5" fill="#111"/>
+  <!-- Eye shine -->
+  <circle cx="37" cy="28" r="1.8" fill="white"/>
+  <circle cx="67" cy="28" r="1.8" fill="white"/>
+
+  <!-- Monocle on right eye -->
+  <circle cx="65" cy="29" r="11" fill="none" stroke="#D4AF37" stroke-width="2"/>
+  <line x1="74" y1="37" x2="78" y2="44" stroke="#D4AF37" stroke-width="1.5"/>
+
+  <!-- Cheeks / lower face lighter -->
+  <ellipse cx="50" cy="64" rx="23" ry="15" fill="#78C050"/>
+
+  <!-- Smug satisfied Pepe lips -->
+  <path d="M30 63 Q40 57 50 59 Q60 57 70 63 Q65 72 50 73 Q35 72 30 63Z" fill="#C4905A"/>
+  <path d="M30 63 Q50 67 70 63" fill="none" stroke="#8B5A2B" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Top hat -->
+  <rect x="26" y="5" width="48" height="22" rx="2" fill="#111"/>
+  <rect x="16" y="24" width="68" height="5" rx="2" fill="#111"/>
+  <!-- Hat band -->
+  <rect x="26" y="21" width="48" height="4" rx="0" fill="#D4AF37"/>
+
+  <!-- Cash fan in left hand -->
+  <g transform="translate(4, 68)">
+    <rect x="0" y="6" width="20" height="11" rx="2" fill="#5A9B40" stroke="#3A7A20" stroke-width="0.8" transform="rotate(-25 10 11)"/>
+    <rect x="0" y="4" width="20" height="11" rx="2" fill="#6DB050" stroke="#3A7A20" stroke-width="0.8" transform="rotate(-12 10 9)"/>
+    <rect x="0" y="2" width="20" height="11" rx="2" fill="#85BB65" stroke="#3A7A20" stroke-width="0.8" transform="rotate(0 10 7)"/>
+    <text x="10" y="9" text-anchor="middle" font-size="6" font-weight="bold" fill="#1E4A10" font-family="sans-serif">$</text>
+  </g>
+
+  <!-- Cigar in mouth corner -->
+  <rect x="58" y="64" width="20" height="3.5" rx="1.5" fill="#C8A060"/>
+  <rect x="76" y="63" width="4" height="5.5" rx="1" fill="#E8C080"/>
+  <!-- Smoke puff -->
+  <circle cx="82" cy="58" r="2.5" fill="#AAAAAA" opacity="0.5"/>
+  <circle cx="85" cy="54" r="2" fill="#AAAAAA" opacity="0.35"/>
+  <circle cx="83" cy="50" r="1.5" fill="#AAAAAA" opacity="0.2"/>
+</svg>
