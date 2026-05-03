@@ -1,8 +1,11 @@
+import os
 import time
 import threading
 import httpx
 from datetime import datetime, timezone
 from fastapi import HTTPException
+
+COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")
 
 COINS = [
     {"id": "bitcoin",     "symbol": "BTC",  "name": "Bitcoin"},
@@ -59,8 +62,9 @@ def _coingecko_get(path: str, params: dict) -> dict:
                 return data
 
         try:
+            headers = {"x-cg-demo-api-key": COINGECKO_API_KEY} if COINGECKO_API_KEY else {}
             with httpx.Client(timeout=30) as client:
-                response = client.get(f"{COINGECKO_BASE}{path}", params=params)
+                response = client.get(f"{COINGECKO_BASE}{path}", params=params, headers=headers)
                 response.raise_for_status()
                 data = response.json()
         except httpx.HTTPStatusError as exc:
