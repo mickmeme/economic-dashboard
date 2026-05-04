@@ -1,4 +1,4 @@
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 
 export default function RatioChart({
   title, subtitle, description,
@@ -8,6 +8,7 @@ export default function RatioChart({
   lineColor = '#22c55e',
   yFormatter,
   tooltipFormatter,
+  referenceLines = [],
 }) {
   return (
     <div className="bg-[#141414] border border-[#222] rounded-lg p-4">
@@ -80,6 +81,16 @@ export default function RatioChart({
                 labelStyle={{ color: '#888', fontSize: '10px', marginBottom: '4px' }}
                 formatter={(v) => [tooltipFormatter ? tooltipFormatter(v) : String(v), 'Ratio']}
               />
+              {referenceLines.map(rl => (
+                <ReferenceLine
+                  key={rl.value}
+                  y={rl.value}
+                  stroke={rl.color}
+                  strokeDasharray="5 4"
+                  strokeOpacity={0.6}
+                  label={{ value: rl.label, position: 'insideTopRight', fill: rl.color, fontSize: 9, fontWeight: 600 }}
+                />
+              ))}
               <Line type="monotone" dataKey="value" stroke={lineColor} strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>

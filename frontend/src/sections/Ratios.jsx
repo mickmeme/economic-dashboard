@@ -14,11 +14,17 @@ const BTC_GOLD_PERIODS = [
   { key: 'max', label: 'MAX' },
 ]
 
+const BUFFETT_REFERENCE_LINES = [
+  { value: 100, color: '#3b82f6', label: 'Fair Value'       },
+  { value: 135, color: '#f97316', label: 'Overvalued'       },
+  { value: 165, color: '#ef4444', label: 'Sig. Overvalued'  },
+]
+
 function buffettValuation(ratio) {
   if (ratio == null) return null
-  if (ratio < 80)  return { label: 'Undervalued',          color: '#22c55e' }
-  if (ratio < 115) return { label: 'Fair Value',            color: '#FFF97F' }
-  if (ratio < 150) return { label: 'Overvalued',            color: '#f97316' }
+  if (ratio < 100) return { label: 'Undervalued',             color: '#22c55e' }
+  if (ratio < 135) return { label: 'Fair Value',              color: '#3b82f6' }
+  if (ratio < 165) return { label: 'Overvalued',              color: '#f97316' }
   return                   { label: 'Significantly Overvalued', color: '#ef4444' }
 }
 
@@ -37,7 +43,7 @@ export default function Ratios() {
       <RatioChart
         title="Buffett Indicator"
         subtitle="Wilshire 5000 / US Nominal GDP"
-        description="Total US stock market cap relative to GDP. Warren Buffett's preferred gauge of whether the market is cheap or expensive. Above 150% is historically considered significantly overvalued."
+        description="Total US stock market cap relative to GDP. Warren Buffett's preferred gauge of whether the market is cheap or expensive. Blue = fair value (100%), orange = overvalued (135%), red = significantly overvalued (165%)."
         current={currentBuffett != null ? `${currentBuffett.toFixed(1)}%` : null}
         valuation={buffettValuation(currentBuffett)}
         data={(buffett.data ?? []).map(d => ({ time: d.timestamp, value: d.ratio }))}
@@ -49,6 +55,7 @@ export default function Ratios() {
         lineColor="#FFF97F"
         yFormatter={(v) => `${v.toFixed(0)}%`}
         tooltipFormatter={(v) => `${v.toFixed(1)}%`}
+        referenceLines={BUFFETT_REFERENCE_LINES}
       />
       <RatioChart
         title="BTC / Gold Market Cap"
