@@ -59,7 +59,20 @@ export default function RatioChart({
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
-              <XAxis dataKey="time" hide />
+              <XAxis
+                dataKey="time"
+                tick={{ fill: '#444', fontSize: 10 }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v) => {
+                  const d = new Date(v)
+                  if (isNaN(d)) return ''
+                  return period === '1y' || period === '3y'
+                    ? d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' })
+                    : String(d.getFullYear())
+                }}
+                minTickGap={40}
+              />
               <YAxis
                 domain={['auto', 'auto']}
                 tick={{ fill: '#444', fontSize: 10 }}
