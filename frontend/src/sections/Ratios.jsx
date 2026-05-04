@@ -58,19 +58,19 @@ export default function Ratios() {
         referenceLines={BUFFETT_REFERENCE_LINES}
       />
       <RatioChart
-        title="BTC / Gold Market Cap"
-        subtitle="Bitcoin Market Cap ÷ Gold Market Cap"
-        description="Bitcoin's market cap relative to gold's estimated total market cap (~6.8B troy oz above ground). A rising ratio reflects BTC gaining ground on gold as a store of value."
-        current={currentBtcGold != null ? currentBtcGold.toFixed(4) : null}
-        data={(btcGold.data ?? []).map(d => ({ time: d.timestamp, value: d.ratio }))}
+        title="BTC vs Gold Market Cap"
+        subtitle="Bitcoin market cap as a % of gold market cap"
+        description="How large Bitcoin's market cap is relative to gold's (~6.8B troy oz above ground × gold price). 10% means BTC is one-tenth the size of gold. A rising chart means BTC is gaining ground on gold as a store of value."
+        current={currentBtcGold != null ? `${(currentBtcGold * 100).toFixed(2)}%` : null}
+        data={(btcGold.data ?? []).map(d => ({ time: d.timestamp, value: d.ratio * 100 }))}
         isLoading={btcGold.isLoading}
         error={btcGold.error}
         periods={BTC_GOLD_PERIODS}
         period={btcGoldPeriod}
         onPeriodChange={setBtcGoldPeriod}
         lineColor="#f97316"
-        yFormatter={(v) => v.toFixed(3)}
-        tooltipFormatter={(v) => v.toFixed(4)}
+        yFormatter={(v) => `${v.toFixed(1)}%`}
+        tooltipFormatter={(v) => `${v.toFixed(2)}% of gold`}
       />
     </div>
   )
