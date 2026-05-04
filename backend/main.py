@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from services.indices import get_indices, get_index_history, INSTRUMENTS
 from services.crypto import get_crypto, get_crypto_history, COINS
+from services.ratios import get_buffett_ratio, get_btc_gold_ratio
 
 app = FastAPI(title="Economic Dashboard API")
 
@@ -50,3 +51,13 @@ def crypto_history(
     if coin_id not in VALID_COIN_IDS:
         raise HTTPException(status_code=404, detail=f"Coin '{coin_id}' not found")
     return get_crypto_history(coin_id, period)
+
+
+@app.get("/api/ratios/buffett")
+def buffett_ratio(period: str = Query(default="10y", pattern="^(5y|10y|max)$")):
+    return get_buffett_ratio(period)
+
+
+@app.get("/api/ratios/btc-gold")
+def btc_gold_ratio(period: str = Query(default="1y", pattern="^(1y|3y|max)$")):
+    return get_btc_gold_ratio(period)

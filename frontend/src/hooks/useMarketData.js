@@ -28,6 +28,24 @@ export function useCrypto() {
   })
 }
 
+export function useBuffettRatio(period = '10y') {
+  return useQuery({
+    queryKey: ['ratios', 'buffett', period],
+    queryFn: () => fetchJson(`${API_BASE}/api/ratios/buffett?period=${period}`),
+    staleTime: 60 * 60 * 1000,
+    retry: 2,
+  })
+}
+
+export function useBtcGoldRatio(period = '1y') {
+  return useQuery({
+    queryKey: ['ratios', 'btc-gold', period],
+    queryFn: () => fetchJson(`${API_BASE}/api/ratios/btc-gold?period=${period}`),
+    staleTime: 60 * 60 * 1000,
+    retry: 2,
+  })
+}
+
 export function useHistory(type, id, period, enabled = true) {
   return useQuery({
     queryKey: [type, id, 'history', period],
