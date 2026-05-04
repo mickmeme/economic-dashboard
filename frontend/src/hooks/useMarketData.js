@@ -46,6 +46,15 @@ export function useBtcGoldRatio(period = '1y') {
   })
 }
 
+export function useYieldSpread(period = '5y') {
+  return useQuery({
+    queryKey: ['ratios', 'yield-spread', period],
+    queryFn: () => fetchJson(`${API_BASE}/api/ratios/yield-spread?period=${period}`),
+    staleTime: 60 * 60 * 1000,
+    retry: 2,
+  })
+}
+
 export function useHistory(type, id, period, enabled = true) {
   return useQuery({
     queryKey: [type, id, 'history', period],

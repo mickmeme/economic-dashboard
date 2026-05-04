@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import RatioChart from '../components/RatioChart'
+import YieldSpreadChart from '../components/YieldSpreadChart'
 import { useBuffettRatio, useBtcGoldRatio } from '../hooks/useMarketData'
 
 const BUFFETT_PERIODS = [
@@ -72,6 +73,7 @@ export default function Ratios() {
         yFormatter={(v) => `${v.toFixed(1)}%`}
         tooltipFormatter={(v) => `${v.toFixed(2)}% of gold`}
       />
+      <YieldSpreadChart />
     </div>
   )
 }

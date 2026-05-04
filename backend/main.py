@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from services.indices import get_indices, get_index_history, INSTRUMENTS
 from services.crypto import get_crypto, get_crypto_history, COINS
 from services.ratios import get_buffett_ratio, get_btc_gold_ratio
+from services.yields import get_yield_spread
 
 app = FastAPI(title="Economic Dashboard API")
 
@@ -61,3 +62,8 @@ def buffett_ratio(period: str = Query(default="10y", pattern="^(5y|10y|max)$")):
 @app.get("/api/ratios/btc-gold")
 def btc_gold_ratio(period: str = Query(default="1y", pattern="^(1y|3y|max)$")):
     return get_btc_gold_ratio(period)
+
+
+@app.get("/api/ratios/yield-spread")
+def yield_spread(period: str = Query(default="5y", pattern="^(1y|3y|5y|10y|max)$")):
+    return get_yield_spread(period)
