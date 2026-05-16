@@ -144,6 +144,11 @@ function ResourceCard({ resource }) {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
+            {(() => {
+              const vols = (data ?? []).map(d => d.volume ?? 0).filter(v => v > 0).sort((a, b) => a - b)
+              const p95  = vols[Math.floor(vols.length * 0.95)] ?? 1
+              const volMax = p95 * 1.5
+              return (
             <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 4 }}>
               <XAxis
                 dataKey="time"
@@ -162,7 +167,7 @@ function ResourceCard({ resource }) {
                 width={54}
                 tickFormatter={yLabel}
               />
-              {/* Volume axis (right) — hidden, just scales the bars */}
+              {/* Volume axis (right) — hidden, capped at p95 so rollover spikes don't squash normal bars */}
               <YAxis
                 yAxisId="volume"
                 orientation="right"
@@ -170,6 +175,7 @@ function ResourceCard({ resource }) {
                 axisLine={false}
                 tickLine={false}
                 width={1}
+                domain={[0, volMax]}
               />
               <Tooltip
                 contentStyle={{
@@ -224,6 +230,8 @@ function ResourceCard({ resource }) {
                 isAnimationActive={false}
               />
             </ComposedChart>
+              )
+            })()}
           </ResponsiveContainer>
         )}
       </div>
