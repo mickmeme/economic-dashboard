@@ -1,3 +1,4 @@
+import math
 import time
 import threading
 
@@ -140,9 +141,20 @@ def _get_lock(key: str) -> threading.Lock:
     return _locks[key]
 
 
+def _safe_float(v) -> float | None:
+    """Return float or None — guards against NaN/Inf which break JSON serialization."""
+    if v is None:
+        return None
+    try:
+        f = float(v)
+        return None if (math.isnan(f) or math.isinf(f)) else f
+    except (TypeError, ValueError):
+        return None
+
+
 def _normalise_index(hist: pd.DataFrame) -> pd.DataFrame:
     if hasattr(hist.index, "tz") and hist.index.tz is not None:
-        hist.index = hist.index.tz_localize(None)
+        hist.index = hist.index.tz_convert(None)
     return hist
 
 
@@ -150,12 +162,12 @@ def get_resources_list() -> list[dict]:
     result = []
     for r in RESOURCES:
         try:
-            info = yf.Ticker(r["ticker"]).fast_info
-            price = getattr(info, "last_price", None)
-            prev  = getattr(info, "previous_close", None)
+            info  = yf.Ticker(r["ticker"]).fast_info
+            price = _safe_float(getattr(info, "last_price", None))
+            prev  = _safe_float(getattr(info, "previous_close", None))
             change_pct = (
                 round((price - prev) / prev * 100, 2)
-                if price and prev and prev > 0 else None
+                if price is not None and prev and prev > 0 else None
             )
             result.append({
                 "key":        r["key"],
@@ -163,7 +175,7 @@ def get_resources_list() -> list[dict]:
                 "ticker":     r["ticker"],
                 "unit":       r["unit"],
                 "color":      r["color"],
-                "price":      round(float(price), 3) if price else None,
+                "price":      round(price, 3) if price is not None else None,
                 "change_pct": change_pct,
                 "supply":     r["supply"],
             })

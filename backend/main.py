@@ -76,7 +76,10 @@ def yield_spread(period: str = Query(default="5y", pattern="^(1y|3y|5y|10y|max)$
 
 @app.get("/api/resources")
 def resources_list():
-    return get_resources_list()
+    try:
+        return get_resources_list()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Resources unavailable: {exc}")
 
 
 @app.get("/api/resources/{key}/history")
