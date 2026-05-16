@@ -85,9 +85,11 @@ export default function RealEstate() {
   const chartData = buildChartData(states)
 
   if (error) {
+    const detail = error?.message ?? String(error)
     return (
-      <div className="flex items-center justify-center h-40">
+      <div className="flex items-center justify-center h-40 flex-col gap-2">
         <p className="text-red-400 text-sm">Failed to load real estate data</p>
+        <p className="text-[#555] text-xs max-w-lg text-center">{detail}</p>
       </div>
     )
   }
