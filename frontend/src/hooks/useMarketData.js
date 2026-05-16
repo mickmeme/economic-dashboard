@@ -55,6 +55,25 @@ export function useYieldSpread(period = '5y') {
   })
 }
 
+export function useResourcesList() {
+  return useQuery({
+    queryKey: ['resources', 'list'],
+    queryFn: () => fetchJson(`${API_BASE}/api/resources`),
+    staleTime: 5 * 60 * 1000,
+    retry: 2,
+  })
+}
+
+export function useResourceHistory(key, period = '1m') {
+  return useQuery({
+    queryKey: ['resources', key, period],
+    queryFn: () => fetchJson(`${API_BASE}/api/resources/${key}/history?period=${period}`),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    enabled: !!key,
+  })
+}
+
 export function useRealEstateStates() {
   return useQuery({
     queryKey: ['realestate', 'states'],

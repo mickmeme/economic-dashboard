@@ -8,6 +8,7 @@ from services.crypto import get_crypto, get_crypto_history, COINS
 from services.ratios import get_buffett_ratio, get_btc_gold_ratio
 from services.yields import get_yield_spread
 from services.realestate import get_state_overview, get_suburb_overview
+from services.resources import get_resources_list, get_resource_history, VALID_KEYS as RESOURCE_KEYS
 
 app = FastAPI(title="Economic Dashboard API")
 
@@ -71,6 +72,24 @@ def btc_gold_ratio(period: str = Query(default="1y", pattern="^(1y|3y|max)$")):
 @app.get("/api/ratios/yield-spread")
 def yield_spread(period: str = Query(default="5y", pattern="^(1y|3y|5y|10y|max)$")):
     return get_yield_spread(period)
+
+
+@app.get("/api/resources")
+def resources_list():
+    return get_resources_list()
+
+
+@app.get("/api/resources/{key}/history")
+def resource_history(
+    key: str,
+    period: str = Query(default="1m", pattern="^(1d|1w|1m|3m|1y|5y)$"),
+):
+    if key not in RESOURCE_KEYS:
+        raise HTTPException(status_code=404, detail=f"Resource '{key}' not found")
+    try:
+        return get_resource_history(key, period)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
 
 
 @app.get("/api/realestate/states")

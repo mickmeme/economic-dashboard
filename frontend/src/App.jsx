@@ -9,6 +9,7 @@ import AustralianSectors from './sections/AustralianSectors'
 import Crypto from './sections/Crypto'
 import Ratios from './sections/Ratios'
 import RealEstate from './sections/RealEstate'
+import Resources from './sections/Resources'
 
 const queryClient = new QueryClient()
 
@@ -16,6 +17,7 @@ const TABS = [
   { key: 'dashboard',   label: 'Dashboard'    },
   { key: 'ratios',      label: 'Ratios'       },
   { key: 'realestate',  label: 'Real Estate'  },
+  { key: 'resources',   label: 'Resources'    },
 ]
 
 function Dashboard() {
@@ -63,8 +65,10 @@ function Dashboard() {
           </>
         ) : activeTab === 'ratios' ? (
           <Ratios />
-        ) : (
+        ) : activeTab === 'realestate' ? (
           <RealEstate />
+        ) : (
+          <Resources />
         )}
       </main>
 
