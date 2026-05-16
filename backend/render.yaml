@@ -8,3 +8,7 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.0"
+      - key: DOMAIN_CLIENT_ID
+        value: "client_991dfcf61ca75ac09f95ef73a7807596"
+      - key: DOMAIN_CLIENT_SECRET
+        value: "secret_e8b49ae07c05eb3c366a438efa0c91f8"
