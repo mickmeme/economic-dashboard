@@ -39,6 +39,11 @@ RESOURCES = [
             "remaining_label": "≈ 1.73 trillion barrels in proven reserves",
             "source": "BP Statistical Review of World Energy 2023",
         },
+        "consumption": {
+            "daily": "~100 million barrels/day",
+            "annual": "~36.5 billion barrels/year",
+            "source": "IEA Oil Market Report 2023",
+        },
     },
     {
         "key": "gold",
@@ -52,6 +57,11 @@ RESOURCES = [
             "mined_label": "≈ 208,874 tonnes ever mined",
             "remaining_label": "≈ 57,000 tonnes in proven reserves",
             "source": "World Gold Council / USGS 2023",
+        },
+        "consumption": {
+            "daily": "~13 tonnes/day",
+            "annual": "~4,899 tonnes/year (jewellery, tech, investment)",
+            "source": "World Gold Council 2023",
         },
     },
     {
@@ -67,6 +77,11 @@ RESOURCES = [
             "remaining_label": "≈ 561,000 tonnes in proven reserves",
             "source": "Silver Institute / USGS 2023",
         },
+        "consumption": {
+            "daily": "~90 tonnes/day",
+            "annual": "~33,000 tonnes/year (industrial, solar, jewellery)",
+            "source": "Silver Institute World Silver Survey 2023",
+        },
     },
     {
         "key": "gas",
@@ -79,6 +94,11 @@ RESOURCES = [
             "pct_remaining": 57.3,
             "mined_label": "≈ 140 trillion m³ consumed",
             "remaining_label": "≈ 188 trillion m³ in proven reserves",
+            "source": "BP Statistical Review of World Energy 2023",
+        },
+        "consumption": {
+            "daily": "~11 billion m³/day",
+            "annual": "~4,000 billion m³/year",
             "source": "BP Statistical Review of World Energy 2023",
         },
     },
@@ -95,6 +115,11 @@ RESOURCES = [
             "remaining_label": "≈ 1.07 trillion tonnes in proven reserves",
             "source": "BP Statistical Review of World Energy 2023",
         },
+        "consumption": {
+            "daily": "~23 million tonnes/day",
+            "annual": "~8.5 billion tonnes/year",
+            "source": "IEA Coal 2023",
+        },
     },
     {
         "key": "platinum",
@@ -109,6 +134,11 @@ RESOURCES = [
             "remaining_label": "≈ 69,000 tonnes in proven reserves",
             "source": "USGS Mineral Commodity Summaries 2023",
         },
+        "consumption": {
+            "daily": "~550 kg/day",
+            "annual": "~200 tonnes/year (autocatalysts, jewellery, industrial)",
+            "source": "World Platinum Investment Council 2023",
+        },
     },
     {
         "key": "palladium",
@@ -122,6 +152,11 @@ RESOURCES = [
             "mined_label": "≈ 6,500 tonnes ever mined",
             "remaining_label": "≈ 60,000 tonnes in proven reserves",
             "source": "USGS Mineral Commodity Summaries 2023",
+        },
+        "consumption": {
+            "daily": "~630 kg/day",
+            "annual": "~230 tonnes/year (autocatalysts — 85% of demand)",
+            "source": "World Platinum Investment Council 2023",
         },
     },
 ]
@@ -170,26 +205,28 @@ def get_resources_list() -> list[dict]:
                 if price is not None and prev and prev > 0 else None
             )
             result.append({
-                "key":        r["key"],
-                "name":       r["name"],
-                "ticker":     r["ticker"],
-                "unit":       r["unit"],
-                "color":      r["color"],
-                "price":      round(price, 3) if price is not None else None,
-                "change_pct": change_pct,
-                "supply":     r["supply"],
+                "key":         r["key"],
+                "name":        r["name"],
+                "ticker":      r["ticker"],
+                "unit":        r["unit"],
+                "color":       r["color"],
+                "price":       round(price, 3) if price is not None else None,
+                "change_pct":  change_pct,
+                "supply":      r["supply"],
+                "consumption": r["consumption"],
             })
         except Exception as exc:
             result.append({
-                "key":        r["key"],
-                "name":       r["name"],
-                "ticker":     r["ticker"],
-                "unit":       r["unit"],
-                "color":      r["color"],
-                "price":      None,
-                "change_pct": None,
-                "supply":     r["supply"],
-                "error":      str(exc),
+                "key":         r["key"],
+                "name":        r["name"],
+                "ticker":      r["ticker"],
+                "unit":        r["unit"],
+                "color":       r["color"],
+                "price":       None,
+                "change_pct":  None,
+                "supply":      r["supply"],
+                "consumption": r["consumption"],
+                "error":       str(exc),
             })
     return result
 
@@ -214,8 +251,9 @@ def get_resource_history(key: str, period: str) -> list[dict]:
         intraday = period == "1d"
         data = [
             {
-                "time":  idx.isoformat() if intraday else str(idx)[:10],
-                "value": round(float(row["Close"]), 4),
+                "time":   idx.isoformat() if intraday else str(idx)[:10],
+                "value":  round(float(row["Close"]), 4),
+                "volume": int(row["Volume"]) if pd.notna(row.get("Volume")) else 0,
             }
             for idx, row in hist.iterrows()
         ]

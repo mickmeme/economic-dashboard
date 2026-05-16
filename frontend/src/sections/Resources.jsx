@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { useResourcesList, useResourceHistory } from '../hooks/useMarketData'
 
@@ -40,29 +40,51 @@ function yLabel(v) {
   return `$${v.toFixed(0)}`
 }
 
-function SupplyBar({ supply, color }) {
+function fmtVolume(v) {
+  if (!v) return '0'
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
+  if (v >= 1_000)     return `${(v / 1_000).toFixed(0)}K`
+  return String(v)
+}
+
+function SupplyBar({ supply, consumption, color }) {
   const { pct_mined, pct_remaining, mined_label, remaining_label, source } = supply
   return (
-    <div className="px-4 pb-4 pt-3 border-t border-[#1e1e1e]">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#555] mb-2">
-        Global Supply Depletion
-      </p>
-      <div className="flex items-center gap-2 mb-1.5">
-        <div className="flex-1 h-2 bg-[#1e1e1e] rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${pct_mined}%`, backgroundColor: color }}
-          />
+    <div className="px-4 pb-4 pt-3 border-t border-[#1e1e1e] space-y-3">
+      {/* Depletion bar */}
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-[#555] mb-2">
+          Global Supply Depletion
+        </p>
+        <div className="flex items-center gap-2 mb-1.5">
+          <div className="flex-1 h-2 bg-[#1e1e1e] rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${pct_mined}%`, backgroundColor: color }}
+            />
+          </div>
+          <span className="text-xs font-bold text-white w-16 text-right shrink-0">
+            {pct_mined}% mined
+          </span>
         </div>
-        <span className="text-xs font-bold text-white w-16 text-right shrink-0">
-          {pct_mined}% mined
-        </span>
+        <div className="flex justify-between text-[10px] text-[#444] leading-relaxed">
+          <span className="pr-4">{mined_label}</span>
+          <span className="text-right shrink-0">{pct_remaining}% left · {remaining_label.split(' in ')[0]}</span>
+        </div>
+        <p className="text-[9px] text-[#333] mt-0.5">Source: {source}</p>
       </div>
-      <div className="flex justify-between text-[10px] text-[#444] leading-relaxed">
-        <span className="pr-4">{mined_label}</span>
-        <span className="text-right shrink-0">{pct_remaining}% left · {remaining_label.split(' in ')[0]}</span>
-      </div>
-      <p className="text-[9px] text-[#333] mt-1">Source: {source}</p>
+
+      {/* Consumption fact */}
+      {consumption && (
+        <div className="border-t border-[#1a1a1a] pt-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#555] mb-1.5">
+            Est. Global Daily Usage
+          </p>
+          <p className="text-sm font-bold text-white">{consumption.daily}</p>
+          <p className="text-[10px] text-[#444] mt-0.5">{consumption.annual}</p>
+          <p className="text-[9px] text-[#333] mt-0.5">Source: {consumption.source}</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -122,7 +144,7 @@ function ResourceCard({ resource }) {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 4 }}>
+            <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 4 }}>
               <XAxis
                 dataKey="time"
                 tick={{ fill: '#444', fontSize: 10 }}
@@ -131,11 +153,23 @@ function ResourceCard({ resource }) {
                 tickFormatter={v => xLabel(v, period)}
                 minTickGap={45}
               />
+              {/* Price axis (left) */}
               <YAxis
+                yAxisId="price"
+                orientation="left"
                 domain={['auto', 'auto']}
                 tick={{ fill: '#444', fontSize: 10 }}
                 width={54}
                 tickFormatter={yLabel}
+              />
+              {/* Volume axis (right) — hidden ticks, just scales the bars */}
+              <YAxis
+                yAxisId="volume"
+                orientation="right"
+                tick={false}
+                axisLine={false}
+                tickLine={false}
+                width={0}
               />
               <Tooltip
                 contentStyle={{
@@ -153,23 +187,37 @@ function ResourceCard({ resource }) {
                   })
                 }}
                 labelStyle={{ color: '#888', fontSize: '10px', marginBottom: '4px' }}
-                formatter={v => [fmtPrice(v), resource.name]}
+                formatter={(v, name) =>
+                  name === 'volume'
+                    ? [fmtVolume(v), 'Volume']
+                    : [fmtPrice(v), resource.name]
+                }
+              />
+              {/* Volume bars behind price line */}
+              <Bar
+                yAxisId="volume"
+                dataKey="volume"
+                fill="#2a2a2a"
+                opacity={0.8}
+                isAnimationActive={false}
               />
               <Line
+                yAxisId="price"
                 type="monotone"
                 dataKey="value"
                 stroke={resource.color}
                 strokeWidth={2}
                 dot={false}
+                isAnimationActive={false}
               />
-            </LineChart>
+            </ComposedChart>
           </ResponsiveContainer>
         )}
       </div>
 
       {/* Supply depletion */}
       <div className="mt-auto">
-        <SupplyBar supply={resource.supply} color={resource.color} />
+        <SupplyBar supply={resource.supply} consumption={resource.consumption} color={resource.color} />
       </div>
     </div>
   )
