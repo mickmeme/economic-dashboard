@@ -55,6 +55,24 @@ export function useYieldSpread(period = '5y') {
   })
 }
 
+export function useRealEstateStates() {
+  return useQuery({
+    queryKey: ['realestate', 'states'],
+    queryFn: () => fetchJson(`${API_BASE}/api/realestate/states`),
+    staleTime: 24 * 60 * 60 * 1000,
+    retry: 1,
+  })
+}
+
+export function useRealEstateSuburbs() {
+  return useQuery({
+    queryKey: ['realestate', 'suburbs'],
+    queryFn: () => fetchJson(`${API_BASE}/api/realestate/suburbs`),
+    staleTime: 24 * 60 * 60 * 1000,
+    retry: 1,
+  })
+}
+
 export function useHistory(type, id, period, enabled = true) {
   return useQuery({
     queryKey: [type, id, 'history', period],

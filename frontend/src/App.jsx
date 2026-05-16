@@ -8,12 +8,14 @@ import GlobalIndices from './sections/GlobalIndices'
 import AustralianSectors from './sections/AustralianSectors'
 import Crypto from './sections/Crypto'
 import Ratios from './sections/Ratios'
+import RealEstate from './sections/RealEstate'
 
 const queryClient = new QueryClient()
 
 const TABS = [
-  { key: 'dashboard', label: 'Dashboard' },
-  { key: 'ratios',    label: 'Ratios'    },
+  { key: 'dashboard',   label: 'Dashboard'    },
+  { key: 'ratios',      label: 'Ratios'       },
+  { key: 'realestate',  label: 'Real Estate'  },
 ]
 
 function Dashboard() {
@@ -59,8 +61,10 @@ function Dashboard() {
             <Crypto period={period} onSelect={setSelected} />
             {selected && <InstrumentModal instrument={selected} onClose={() => setSelected(null)} />}
           </>
-        ) : (
+        ) : activeTab === 'ratios' ? (
           <Ratios />
+        ) : (
+          <RealEstate />
         )}
       </main>
 
