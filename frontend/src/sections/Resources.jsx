@@ -162,14 +162,14 @@ function ResourceCard({ resource }) {
                 width={54}
                 tickFormatter={yLabel}
               />
-              {/* Volume axis (right) — hidden ticks, just scales the bars */}
+              {/* Volume axis (right) — hidden, just scales the bars */}
               <YAxis
                 yAxisId="volume"
                 orientation="right"
                 tick={false}
                 axisLine={false}
                 tickLine={false}
-                width={0}
+                width={1}
               />
               <Tooltip
                 contentStyle={{
@@ -193,12 +193,12 @@ function ResourceCard({ resource }) {
                     : [fmtPrice(v), resource.name]
                 }
               />
-              {/* Volume bars behind price line */}
+              {/* Volume bars — resource colour at low opacity so they're visible but subtle */}
               <Bar
                 yAxisId="volume"
                 dataKey="volume"
-                fill="#2a2a2a"
-                opacity={0.8}
+                fill={resource.color}
+                opacity={0.2}
                 isAnimationActive={false}
               />
               <Line
