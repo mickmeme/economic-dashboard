@@ -4,7 +4,11 @@ const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
 async function fetchJson(url) {
   const res = await fetch(url)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  if (!res.ok) {
+    let detail = ''
+    try { detail = (await res.json()).detail ?? '' } catch {}
+    throw new Error(`HTTP ${res.status}${detail ? ': ' + detail : ''}`)
+  }
   return res.json()
 }
 

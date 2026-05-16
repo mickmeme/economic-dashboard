@@ -3,8 +3,8 @@ import io
 import math
 import time
 import threading
-
-import httpx
+import urllib.request
+import urllib.error
 
 ABS_URL = "https://api.data.abs.gov.au/data/ABS,RES_DWELL_ST"
 
@@ -38,15 +38,16 @@ def _safe_float(v):
 
 def _fetch_abs() -> dict:
     """Fetch mean dwelling value (Measure 5, AUD thousands) for all regions from ABS."""
-    headers = {
-        "Accept": "text/csv",
-        "User-Agent": "Mozilla/5.0 (compatible; economic-dashboard/1.0)",
-    }
-    with httpx.Client(timeout=60, follow_redirects=True) as client:
-        resp = client.get(ABS_URL, headers=headers)
-        resp.raise_for_status()
+    req = urllib.request.Request(
+        ABS_URL,
+        headers={
+            "Accept": "text/csv",
+            "User-Agent": "Mozilla/5.0 (compatible; economic-dashboard/1.0)",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        text = resp.read().decode("utf-8-sig")
 
-    text = resp.content.decode("utf-8-sig")  # strip BOM if present
     region_series: dict = {}
     reader = csv.DictReader(io.StringIO(text))
     for row in reader:
