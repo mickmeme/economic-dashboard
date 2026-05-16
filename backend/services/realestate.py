@@ -6,7 +6,7 @@ import threading
 
 import httpx
 
-ABS_URL = "https://api.data.abs.gov.au/data/ABS,RES_DWELL_ST/5.all.Q"
+ABS_URL = "https://api.data.abs.gov.au/data/ABS,RES_DWELL_ST"
 
 CACHE_TTL = 6 * 3600  # 6 hours (ABS updates quarterly)
 
@@ -40,12 +40,14 @@ def _fetch_abs() -> dict:
     """Fetch mean dwelling value (Measure 5, AUD thousands) for all regions from ABS."""
     headers = {"Accept": "text/csv"}
     with httpx.Client(timeout=30) as client:
-        resp = client.get(f"{ABS_URL}?startPeriod=2010-Q1", headers=headers)
+        resp = client.get(ABS_URL, headers=headers)
         resp.raise_for_status()
 
     region_series: dict = {}
     reader = csv.DictReader(io.StringIO(resp.text))
     for row in reader:
+        if row.get("MEASURE", "").strip() != "5":
+            continue
         region_id = row.get("REGION", "").strip()
         period    = row.get("TIME_PERIOD", "").strip()
         value     = _safe_float(row.get("OBS_VALUE"))
