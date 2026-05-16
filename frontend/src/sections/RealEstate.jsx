@@ -1,283 +1,276 @@
-import { useState } from 'react'
-import { useRealEstateStates, useRealEstateSuburbs } from '../hooks/useMarketData'
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
+} from 'recharts'
+import { useRealEstateStates } from '../hooks/useMarketData'
 
-const PROPERTY_TYPES = [
-  { key: 'unit',            label: 'Unit / Apt',    sublabel: '' },
-  { key: 'townhouse',       label: 'Townhouse',     sublabel: '' },
-  { key: 'house_small',     label: 'Small House',   sublabel: '< 3 bed' },
-  { key: 'house_large',     label: 'Large House',   sublabel: '> 3 bed' },
-  { key: 'house_very_large',label: 'Very Large',    sublabel: '5 bed / 5 bath' },
-]
+const STATE_COLORS = {
+  AUS: '#FFF97F',
+  NSW: '#3b82f6',
+  VIC: '#8b5cf6',
+  QLD: '#f59e0b',
+  SA:  '#ef4444',
+  WA:  '#10b981',
+  TAS: '#06b6d4',
+  NT:  '#f97316',
+  ACT: '#ec4899',
+}
 
-function fmt(n) {
+function fmtPrice(n) {
   if (n == null) return '—'
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(3)}M`
   if (n >= 1_000)     return `$${Math.round(n / 1_000)}K`
   return `$${n}`
 }
 
-function Change({ value }) {
-  if (value == null) return <span className="text-[#444] text-xs">—</span>
-  const pos = value >= 0
+function fmtQuarter(q) {
+  if (!q) return ''
+  const [year, quarter] = q.split('-')
+  return `${quarter} ${year}`
+}
+
+function yTickFmt(v) {
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
+  if (v >= 1_000)     return `$${(v / 1_000).toFixed(0)}K`
+  return `$${v}`
+}
+
+function Change({ pct, abs }) {
+  if (pct == null) return <span className="text-[#444] text-xs">—</span>
+  const pos = pct >= 0
   return (
-    <span className={`text-xs font-semibold ${pos ? 'text-green-400' : 'text-red-400'}`}>
-      {pos ? '▲' : '▼'} {pos ? '+' : ''}{value.toFixed(1)}%
-    </span>
+    <div className={`text-xs font-semibold ${pos ? 'text-green-400' : 'text-red-400'}`}>
+      {pos ? '▲' : '▼'} {pos ? '+' : ''}{pct.toFixed(2)}%
+      {abs != null && (
+        <span className="text-[10px] font-normal ml-1 text-[#666]">
+          ({pos ? '+' : ''}{fmtPrice(abs)})
+        </span>
+      )}
+    </div>
   )
 }
 
-function PriceCell({ stats, changeKey, change }) {
-  if (!stats) {
-    return (
-      <td className="px-3 py-3 text-center">
-        <span className="text-[#444] text-sm">—</span>
-      </td>
-    )
+function buildChartData(states) {
+  const quarterMap = {}
+  for (const state of states) {
+    for (const { quarter, value } of (state.history ?? [])) {
+      if (!quarterMap[quarter]) quarterMap[quarter] = { quarter }
+      quarterMap[quarter][state.key] = value
+    }
   }
-  return (
-    <td className="px-3 py-3 text-center">
-      <div className="font-semibold text-white text-sm">{fmt(stats.median)}</div>
-      <div className="text-[#555] text-xs mt-0.5">
-        {fmt(stats.min)} – {fmt(stats.max)}
-      </div>
-      <div className="mt-1">
-        <Change value={change?.[changeKey ?? 'median']} />
-      </div>
-    </td>
-  )
+  return Object.values(quarterMap).sort((a, b) => a.quarter.localeCompare(b.quarter))
 }
 
 function SkeletonRow() {
   return (
     <tr className="border-b border-[#1a1a1a]">
-      <td className="px-3 py-3">
-        <div className="h-4 w-28 bg-[#1C1C1C] rounded animate-pulse" />
+      <td className="px-4 py-3">
+        <div className="h-4 w-32 bg-[#1C1C1C] rounded animate-pulse" />
       </td>
-      {[...Array(5)].map((_, i) => (
-        <td key={i} className="px-3 py-3 text-center">
-          <div className="h-4 w-20 bg-[#1C1C1C] rounded animate-pulse mx-auto mb-1" />
-          <div className="h-3 w-24 bg-[#161616] rounded animate-pulse mx-auto" />
+      {[...Array(3)].map((_, i) => (
+        <td key={i} className="px-4 py-3 text-right">
+          <div className="h-4 w-20 bg-[#1A1A1A] rounded animate-pulse ml-auto" />
         </td>
       ))}
     </tr>
   )
 }
 
-function StateTable({ data, isLoading, error }) {
+export default function RealEstate() {
+  const { data, isLoading, error } = useRealEstateStates()
+
+  const states   = data?.states ?? []
+  const period   = data?.period ?? ''
+  const national = states.find(s => s.key === 'AUS')
+  const byState  = states.filter(s => s.key !== 'AUS')
+  const chartData = buildChartData(states)
+
   if (error) {
-    const msg = error.message || 'Unknown error'
-    const needsKey = msg.includes('503') || msg.includes('DOMAIN_CLIENT')
     return (
-      <div className="bg-[#111] border border-[#1C1C1C] rounded-lg p-6 text-center">
-        <p className="text-red-400 text-sm font-semibold mb-2">
-          {needsKey ? 'Domain API credentials not configured' : 'Failed to load state data'}
-        </p>
-        {needsKey && (
-          <p className="text-[#666] text-xs max-w-md mx-auto">
-            Register at <span className="text-[#FFF97F]">developers.domain.com.au</span> and set{' '}
-            <code className="bg-[#1C1C1C] px-1 rounded">DOMAIN_CLIENT_ID</code> and{' '}
-            <code className="bg-[#1C1C1C] px-1 rounded">DOMAIN_CLIENT_SECRET</code> environment variables.
-          </p>
-        )}
+      <div className="flex items-center justify-center h-40">
+        <p className="text-red-400 text-sm">Failed to load real estate data</p>
       </div>
     )
   }
 
-  const states = data?.states ?? []
-
-  return (
-    <div className="bg-[#111] border border-[#1C1C1C] rounded-lg overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[800px] border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-[#222]">
-              <th className="px-3 py-3 text-left text-[#666] text-xs font-semibold uppercase tracking-wider w-44">
-                State
-              </th>
-              {PROPERTY_TYPES.map(pt => (
-                <th key={pt.key} className="px-3 py-3 text-center text-[#666] text-xs font-semibold uppercase tracking-wider">
-                  <div>{pt.label}</div>
-                  {pt.sublabel && <div className="text-[#444] normal-case font-normal">{pt.sublabel}</div>}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading
-              ? [...Array(8)].map((_, i) => <SkeletonRow key={i} />)
-              : states.map(state => (
-                  <tr key={state.key} className="border-b border-[#161616] hover:bg-[#141414] transition-colors">
-                    <td className="px-3 py-3">
-                      <div className="font-semibold text-white text-sm">{state.key}</div>
-                      <div className="text-[#555] text-xs">{state.label}</div>
-                    </td>
-                    {PROPERTY_TYPES.map(pt => {
-                      const typeData = state.types?.[pt.key]
-                      return (
-                        <PriceCell
-                          key={pt.key}
-                          stats={typeData?.current}
-                          changeKey="median"
-                          change={typeData?.change}
-                        />
-                      )
-                    })}
-                  </tr>
-                ))
-            }
-          </tbody>
-        </table>
-      </div>
-      <div className="px-4 py-2 border-t border-[#1a1a1a] flex justify-between items-center">
-        <span className="text-[#444] text-xs">
-          Median · (lowest – peak) · month-on-month change · Source: Domain.com.au
-        </span>
-        {data?.fetched_at && (
-          <span className="text-[#444] text-xs">Data for {data.fetched_at}</span>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function SuburbCard({ suburb }) {
-  return (
-    <div className="bg-[#111] border border-[#1C1C1C] rounded-lg overflow-hidden">
-      <div className="px-4 py-3 border-b border-[#1C1C1C] flex items-baseline gap-2">
-        <span className="font-semibold text-white">{suburb.label}</span>
-        <span className="text-[#555] text-xs">{suburb.postcode} · {suburb.state}</span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-[#1a1a1a]">
-              <th className="px-3 py-2 text-left text-[#555] text-xs font-semibold uppercase tracking-wider">
-                Type
-              </th>
-              <th className="px-3 py-2 text-right text-[#555] text-xs font-semibold uppercase tracking-wider">
-                Median
-              </th>
-              <th className="px-3 py-2 text-right text-[#555] text-xs font-semibold uppercase tracking-wider">
-                Lowest
-              </th>
-              <th className="px-3 py-2 text-right text-[#555] text-xs font-semibold uppercase tracking-wider">
-                Peak
-              </th>
-              <th className="px-3 py-2 text-right text-[#555] text-xs font-semibold uppercase tracking-wider">
-                MoM
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {PROPERTY_TYPES.map(pt => {
-              const td = suburb.types?.[pt.key]
-              const curr = td?.current
-              const change = td?.change
-              return (
-                <tr key={pt.key} className="border-b border-[#161616] hover:bg-[#141414] transition-colors">
-                  <td className="px-3 py-2.5">
-                    <div className="text-white text-xs font-semibold">{pt.label}</div>
-                    {pt.sublabel && <div className="text-[#444] text-xs">{pt.sublabel}</div>}
-                  </td>
-                  <td className="px-3 py-2.5 text-right font-semibold text-white text-sm">
-                    {curr ? fmt(curr.median) : <span className="text-[#444]">—</span>}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-[#888] text-sm">
-                    {curr ? fmt(curr.min) : <span className="text-[#444]">—</span>}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-[#888] text-sm">
-                    {curr ? fmt(curr.max) : <span className="text-[#444]">—</span>}
-                  </td>
-                  <td className="px-3 py-2.5 text-right">
-                    <Change value={change?.median} />
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
-function SuburbSkeletonCard({ title }) {
-  return (
-    <div className="bg-[#111] border border-[#1C1C1C] rounded-lg overflow-hidden">
-      <div className="px-4 py-3 border-b border-[#1C1C1C]">
-        <div className="h-4 w-36 bg-[#1C1C1C] rounded animate-pulse" />
-      </div>
-      {[...Array(5)].map((_, i) => (
-        <div key={i} className="px-3 py-2.5 border-b border-[#161616] flex justify-between">
-          <div className="h-3 w-24 bg-[#1C1C1C] rounded animate-pulse" />
-          <div className="h-3 w-16 bg-[#161616] rounded animate-pulse" />
-        </div>
-      ))}
-    </div>
-  )
-}
-
-export default function RealEstate() {
-  const states = useRealEstateStates()
-  const suburbs = useRealEstateSuburbs()
-
-  const suburbList = suburbs.data ?? []
-  const suburbsError = suburbs.error
-  const suburbsLoading = suburbs.isLoading
-
   return (
     <div className="space-y-8">
-
-      {/* Header */}
       <div>
         <h2 className="text-lg font-semibold text-white mb-1">Australian Property Market</h2>
         <p className="text-[#555] text-sm">
-          Median, lowest and peak sale prices by property type · Current month vs prior month · Source: Domain.com.au
+          Mean dwelling value by state · Quarter-on-quarter and year-on-year changes
+          · Source: ABS Residential Dwelling Values (cat. 6432.0)
+          {period ? ` · Latest: ${fmtQuarter(period)}` : ''}
         </p>
       </div>
 
-      {/* State Overview */}
-      <section>
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs font-semibold uppercase tracking-wider text-[#FFF97F]">
-            State Overview
-          </span>
-          <span className="text-[#333] text-xs">— all states, all property types</span>
-        </div>
-        <StateTable
-          data={states.data}
-          isLoading={states.isLoading}
-          error={states.error}
-        />
-      </section>
-
-      {/* Suburb Spotlight */}
-      <section>
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs font-semibold uppercase tracking-wider text-[#FFF97F]">
-            Suburb Spotlight
-          </span>
-          <span className="text-[#333] text-xs">— Point Cook &amp; Varsity Lakes</span>
-        </div>
-
-        {suburbsError ? (
-          <div className="bg-[#111] border border-[#1C1C1C] rounded-lg p-6 text-center">
-            <p className="text-red-400 text-sm">Failed to load suburb data</p>
-          </div>
+      {/* National headline */}
+      <div className="bg-[#111] border border-[#1C1C1C] rounded-lg px-6 py-5 flex flex-wrap gap-6 items-center">
+        {isLoading ? (
+          <>
+            <div className="h-8 w-36 bg-[#1C1C1C] rounded animate-pulse" />
+            <div className="h-5 w-24 bg-[#1a1a1a] rounded animate-pulse ml-6" />
+          </>
         ) : (
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            {suburbsLoading
-              ? ['Point Cook', 'Varsity Lakes'].map(t => <SuburbSkeletonCard key={t} title={t} />)
-              : suburbList.map(suburb => <SuburbCard key={suburb.key} suburb={suburb} />)
-            }
-          </div>
+          <>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider font-semibold text-[#555] mb-1">
+                National Mean Dwelling Value
+              </p>
+              <p className="text-3xl font-bold font-mono" style={{ color: STATE_COLORS.AUS }}>
+                {fmtPrice(national?.price)}
+              </p>
+            </div>
+            <div className="border-l border-[#222] pl-6">
+              <p className="text-[10px] uppercase tracking-wider text-[#555] mb-1">Quarter-on-Quarter</p>
+              <Change pct={national?.qoq_pct} abs={national?.qoq_abs} />
+            </div>
+            <div className="border-l border-[#222] pl-6">
+              <p className="text-[10px] uppercase tracking-wider text-[#555] mb-1">Year-on-Year</p>
+              <Change pct={national?.yoy_pct} />
+            </div>
+          </>
         )}
+      </div>
+
+      {/* State breakdown table */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs font-semibold uppercase tracking-wider text-[#FFF97F]">
+            State Breakdown
+          </span>
+          <span className="text-[#333] text-xs">— mean dwelling value, quarterly changes</span>
+        </div>
+
+        <div className="bg-[#111] border border-[#1C1C1C] rounded-lg overflow-hidden">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-[#222]">
+                <th className="px-4 py-3 text-left text-[#555] text-xs font-semibold uppercase tracking-wider">
+                  State
+                </th>
+                <th className="px-4 py-3 text-right text-[#555] text-xs font-semibold uppercase tracking-wider">
+                  Mean Price
+                </th>
+                <th className="px-4 py-3 text-right text-[#555] text-xs font-semibold uppercase tracking-wider">
+                  QoQ Change
+                </th>
+                <th className="px-4 py-3 text-right text-[#555] text-xs font-semibold uppercase tracking-wider">
+                  YoY Change
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading
+                ? [...Array(8)].map((_, i) => <SkeletonRow key={i} />)
+                : byState.map(state => (
+                    <tr key={state.key} className="border-b border-[#161616] hover:bg-[#141414] transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: STATE_COLORS[state.key] ?? '#555' }}
+                          />
+                          <div>
+                            <div className="font-semibold text-white">{state.key}</div>
+                            <div className="text-[#555] text-xs">{state.label}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-bold font-mono text-white">{fmtPrice(state.price)}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Change pct={state.qoq_pct} abs={state.qoq_abs} />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Change pct={state.yoy_pct} />
+                      </td>
+                    </tr>
+                  ))
+              }
+            </tbody>
+          </table>
+        </div>
       </section>
 
-      {/* Data note */}
+      {/* Historical chart */}
+      {!isLoading && chartData.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#FFF97F]">
+              Price History
+            </span>
+            <span className="text-[#333] text-xs">— mean dwelling value by state (quarterly)</span>
+          </div>
+
+          <div className="bg-[#111] border border-[#1C1C1C] rounded-lg p-4">
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 4, right: 16, bottom: 4, left: 8 }}>
+                  <XAxis
+                    dataKey="quarter"
+                    tick={{ fill: '#444', fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={fmtQuarter}
+                    minTickGap={70}
+                  />
+                  <YAxis
+                    tick={{ fill: '#444', fontSize: 10 }}
+                    width={64}
+                    tickFormatter={yTickFmt}
+                    domain={['auto', 'auto']}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#141414',
+                      border: '1px solid #2A2A2A',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      padding: '8px 12px',
+                    }}
+                    labelFormatter={fmtQuarter}
+                    labelStyle={{ color: '#888', fontSize: '10px', marginBottom: '4px' }}
+                    itemStyle={{ color: '#fff' }}
+                    formatter={(v, name) => [fmtPrice(v), name === 'AUS' ? 'National' : name]}
+                  />
+                  {states.map(state => (
+                    <Line
+                      key={state.key}
+                      dataKey={state.key}
+                      stroke={STATE_COLORS[state.key] ?? '#666'}
+                      strokeWidth={state.key === 'AUS' ? 2.5 : 1.5}
+                      dot={false}
+                      isAnimationActive={false}
+                      name={state.key === 'AUS' ? 'National' : state.key}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Legend */}
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 px-1">
+              {states.map(state => (
+                <div key={state.key} className="flex items-center gap-1.5">
+                  <div
+                    className="w-4 h-0.5 rounded"
+                    style={{ backgroundColor: STATE_COLORS[state.key] ?? '#555' }}
+                  />
+                  <span className="text-[10px] text-[#555]">
+                    {state.key === 'AUS' ? 'National' : state.key}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       <p className="text-[#333] text-xs pb-2">
-        Current month data is partial (from the 1st to today). Prior month reflects the full previous calendar month.
-        Very large house (5 bed / 5 bath) may show no data in states with limited sales volume.
+        Mean dwelling value = total estimated value of all residential dwellings ÷ number of dwellings (ABS estimates).
+        Data is quarterly; individual property type and suburb-level breakdowns are not available through this source.
+        Source: Australian Bureau of Statistics, Residential Dwelling Values (cat. 6432.0).
       </p>
     </div>
   )
