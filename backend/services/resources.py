@@ -253,6 +253,7 @@ def get_resource_history(key: str, period: str) -> list[dict]:
             {
                 "time":   idx.isoformat() if intraday else str(idx)[:10],
                 "value":  round(float(row["Close"]), 4),
+                "open":   _safe_float(row.get("Open")) or round(float(row["Close"]), 4),
                 "volume": int(row["Volume"]) if pd.notna(row.get("Volume")) else 0,
             }
             for idx, row in hist.iterrows()

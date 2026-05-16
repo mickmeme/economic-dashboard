@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  ComposedChart, Line, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { useResourcesList, useResourceHistory } from '../hooks/useMarketData'
 
@@ -187,20 +187,28 @@ function ResourceCard({ resource }) {
                   })
                 }}
                 labelStyle={{ color: '#888', fontSize: '10px', marginBottom: '4px' }}
-                formatter={(v, name) =>
-                  name === 'volume'
-                    ? [fmtVolume(v), 'Volume']
-                    : [fmtPrice(v), resource.name]
-                }
+                formatter={(v, name, props) => {
+                  if (name === 'volume') {
+                    const inflow = props.payload?.value >= props.payload?.open
+                    return [fmtVolume(v), inflow ? '▲ Inflow (buyers)' : '▼ Outflow (sellers)']
+                  }
+                  return [fmtPrice(v), resource.name]
+                }}
               />
-              {/* Volume bars — resource colour at low opacity so they're visible but subtle */}
+              {/* Volume bars — green if close > open (inflow), red if close < open (outflow) */}
               <Bar
                 yAxisId="volume"
                 dataKey="volume"
-                fill={resource.color}
-                opacity={0.2}
                 isAnimationActive={false}
-              />
+              >
+                {(data ?? []).map((entry, i) => (
+                  <Cell
+                    key={i}
+                    fill={entry.value >= entry.open ? '#22c55e' : '#ef4444'}
+                    opacity={0.5}
+                  />
+                ))}
+              </Bar>
               <Line
                 yAxisId="price"
                 type="monotone"
