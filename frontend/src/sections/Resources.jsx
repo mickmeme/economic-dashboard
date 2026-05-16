@@ -189,7 +189,8 @@ function ResourceCard({ resource }) {
                 labelStyle={{ color: '#888', fontSize: '10px', marginBottom: '4px' }}
                 formatter={(v, name, props) => {
                   if (name === 'volume') {
-                    const inflow = props.payload?.value >= props.payload?.open
+                    const p = props.payload ?? {}
+                    const inflow = p.value >= (p.open ?? p.value)
                     return [fmtVolume(v), inflow ? '▲ Inflow (buyers)' : '▼ Outflow (sellers)']
                   }
                   return [fmtPrice(v), resource.name]
@@ -201,13 +202,16 @@ function ResourceCard({ resource }) {
                 dataKey="volume"
                 isAnimationActive={false}
               >
-                {(data ?? []).map((entry, i) => (
-                  <Cell
-                    key={i}
-                    fill={entry.value >= entry.open ? '#22c55e' : '#ef4444'}
-                    opacity={0.5}
-                  />
-                ))}
+                {(data ?? []).map((entry, i) => {
+                  const open = entry.open ?? entry.value
+                  return (
+                    <Cell
+                      key={i}
+                      fill={entry.value >= open ? '#22c55e' : '#ef4444'}
+                      opacity={0.5}
+                    />
+                  )
+                })}
               </Bar>
               <Line
                 yAxisId="price"

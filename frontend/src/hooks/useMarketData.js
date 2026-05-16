@@ -66,7 +66,7 @@ export function useResourcesList() {
 
 export function useResourceHistory(key, period = '1m') {
   return useQuery({
-    queryKey: ['resources', key, period],
+    queryKey: ['resources', 'v2', key, period],
     queryFn: () => fetchJson(`${API_BASE}/api/resources/${key}/history?period=${period}`),
     staleTime: 5 * 60 * 1000,
     retry: 1,
