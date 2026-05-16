@@ -187,6 +187,7 @@ function ResourceCard({ resource }) {
                   })
                 }}
                 labelStyle={{ color: '#888', fontSize: '10px', marginBottom: '4px' }}
+                itemStyle={{ color: '#fff' }}
                 formatter={(v, name, props) => {
                   if (name === 'volume') {
                     const p = props.payload ?? {}
