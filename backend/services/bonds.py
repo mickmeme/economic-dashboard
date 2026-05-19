@@ -1,5 +1,6 @@
 import time
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import StringIO
 from datetime import datetime, timezone
 
@@ -179,34 +180,42 @@ def _get_yield_series(bond: dict) -> pd.Series:
         return _ffill_daily(raw)
 
 
+def _fetch_bond_summary(bond: dict) -> dict:
+    ticker = bond["ticker"]
+    try:
+        series = _get_yield_series(bond)
+        price  = round(float(series.iloc[-1]), 3) if len(series) >= 1 else None
+        change = round(float(series.iloc[-1]) - float(series.iloc[-2]), 3) if len(series) >= 2 else None
+        return {
+            "ticker":         ticker,
+            "name":           bond["name"],
+            "section":        bond["section"],
+            "currency":       bond["currency"],
+            "price":          price,
+            "change_percent": change,
+            "updated_at":     datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as exc:
+        return {
+            "ticker":         ticker,
+            "name":           bond["name"],
+            "section":        bond["section"],
+            "currency":       bond["currency"],
+            "price":          None,
+            "change_percent": None,
+            "updated_at":     datetime.now(timezone.utc).isoformat(),
+            "error":          str(exc),
+        }
+
+
 def get_bonds() -> list[dict]:
-    results = []
-    for bond in BONDS:
-        ticker = bond["ticker"]
-        try:
-            series = _get_yield_series(bond)
-            price  = round(float(series.iloc[-1]), 3) if len(series) >= 1 else None
-            change = round(float(series.iloc[-1]) - float(series.iloc[-2]), 3) if len(series) >= 2 else None
-            results.append({
-                "ticker":         ticker,
-                "name":           bond["name"],
-                "section":        bond["section"],
-                "currency":       bond["currency"],
-                "price":          price,
-                "change_percent": change,
-                "updated_at":     datetime.now(timezone.utc).isoformat(),
-            })
-        except Exception as exc:
-            results.append({
-                "ticker":         ticker,
-                "name":           bond["name"],
-                "section":        bond["section"],
-                "currency":       bond["currency"],
-                "price":          None,
-                "change_percent": None,
-                "updated_at":     datetime.now(timezone.utc).isoformat(),
-                "error":          str(exc),
-            })
+    order = {b["ticker"]: i for i, b in enumerate(BONDS)}
+    with ThreadPoolExecutor(max_workers=len(BONDS)) as pool:
+        futures = {pool.submit(_fetch_bond_summary, bond): bond["ticker"] for bond in BONDS}
+        results = [None] * len(BONDS)
+        for future in as_completed(futures):
+            ticker = futures[future]
+            results[order[ticker]] = future.result()
     return results
 
 
