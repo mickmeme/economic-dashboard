@@ -9,6 +9,7 @@ from services.ratios import get_buffett_ratio, get_btc_gold_ratio
 from services.yields import get_yield_spread
 from services.realestate import get_state_overview, get_suburb_overview
 from services.resources import get_resources_list, get_resource_history, VALID_KEYS as RESOURCE_KEYS
+from services.bonds import get_bonds, get_bond_history, BONDS
 
 app = FastAPI(title="Economic Dashboard API")
 
@@ -22,6 +23,7 @@ app.add_middleware(
 VALID_PERIODS = {"1d", "1w", "1m", "3m", "1y", "1d_warmup", "1w_warmup", "1m_warmup", "3m_warmup", "1y_warmup"}
 VALID_TICKERS = {i["ticker"] for i in INSTRUMENTS}
 VALID_COIN_IDS = {c["id"] for c in COINS}
+VALID_BOND_TICKERS = {b["ticker"] for b in BONDS}
 
 
 @app.get("/health")
@@ -57,6 +59,21 @@ def crypto_history(
     if coin_id not in VALID_COIN_IDS:
         raise HTTPException(status_code=404, detail=f"Coin '{coin_id}' not found")
     return get_crypto_history(coin_id, period)
+
+
+@app.get("/api/bonds")
+def bonds():
+    return get_bonds()
+
+
+@app.get("/api/bonds/{ticker}/history")
+def bond_history(
+    ticker: str,
+    period: str = Query(default="1m", pattern="^(1d|1w|1m|3m|1y)(_(warmup))?$"),
+):
+    if ticker not in VALID_BOND_TICKERS:
+        raise HTTPException(status_code=404, detail=f"Bond ticker '{ticker}' not found")
+    return get_bond_history(ticker, period)
 
 
 @app.get("/api/ratios/buffett")

@@ -32,6 +32,16 @@ export function useCrypto() {
   })
 }
 
+export function useBonds() {
+  return useQuery({
+    queryKey: ['bonds'],
+    queryFn: () => fetchJson(`${API_BASE}/api/bonds`),
+    refetchInterval: 5 * 60 * 1000,
+    staleTime: 4 * 60 * 1000,
+    retry: 2,
+  })
+}
+
 export function useBuffettRatio(period = '10y') {
   return useQuery({
     queryKey: ['ratios', 'buffett', period],

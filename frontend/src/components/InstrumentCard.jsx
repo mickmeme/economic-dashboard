@@ -26,9 +26,9 @@ function formatFlow(value) {
 }
 
 export default function InstrumentCard({ instrument, period, onSelect }) {
-  const isIndex  = instrument.section !== 'crypto'
-  const histId   = isIndex ? instrument.ticker : instrument.id
-  const histType = isIndex ? 'indices' : 'crypto'
+  const isCrypto = instrument.section === 'crypto'
+  const histId   = isCrypto ? instrument.id : instrument.ticker
+  const histType = isCrypto ? 'crypto' : instrument.section === 'bonds' ? 'bonds' : 'indices'
 
   const { data: sparkData } = useHistory(histType, histId, period)
 
@@ -53,7 +53,7 @@ export default function InstrumentCard({ instrument, period, onSelect }) {
 
   // Dominance change: compare period-start market cap to current dominance
   const dominanceChange = (() => {
-    if (isIndex || !sparkData || sparkData.length < 2) return null
+    if (!isCrypto || !sparkData || sparkData.length < 2) return null
     if (instrument.dominance == null || !instrument.total_market_cap) return null
     const startMarketCap = sparkData[0]?.market_cap
     if (!startMarketCap) return null
@@ -62,7 +62,7 @@ export default function InstrumentCard({ instrument, period, onSelect }) {
   })()
 
   const flows = (() => {
-    if (isIndex || !sparkData || sparkData.length < 2) return null
+    if (!isCrypto || !sparkData || sparkData.length < 2) return null
     let inflow = 0, outflow = 0
     for (let i = 1; i < sparkData.length; i++) {
       const delta = sparkData[i].price - sparkData[i - 1].price
@@ -81,7 +81,7 @@ export default function InstrumentCard({ instrument, period, onSelect }) {
         <div className="flex flex-col justify-between min-w-0 flex-1">
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="text-xs font-semibold text-white leading-tight truncate">{instrument.name}</span>
-            {!isIndex && instrument.dominance != null && (
+            {!!isCrypto && instrument.dominance != null && (
               <DominanceBadge dominance={instrument.dominance} change={dominanceChange} />
             )}
           </div>
@@ -99,7 +99,7 @@ export default function InstrumentCard({ instrument, period, onSelect }) {
             {instrument.section === 'au_sectors' && (
               <MarketStatus ticker="^AXJO" />
             )}
-            {!isIndex && <MidnightCountdown />}
+            {!!isCrypto && <MidnightCountdown />}
           </div>
         </div>
 
