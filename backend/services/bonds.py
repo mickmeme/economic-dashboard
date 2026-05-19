@@ -55,7 +55,7 @@ def _get_cached(key: str, fn):
 def _fetch_fred(series_id: str) -> pd.Series:
     """Fetch a FRED series CSV and return a daily DatetimeIndex Series (% p.a.)."""
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
-    with httpx.Client(timeout=30, headers={"User-Agent": "Mozilla/5.0"}) as client:
+    with httpx.Client(timeout=10, headers={"User-Agent": "Mozilla/5.0"}) as client:
         resp = client.get(url)
         resp.raise_for_status()
 
@@ -74,7 +74,7 @@ def _fetch_rba() -> dict[str, pd.Series | None]:
     Falls back gracefully: missing columns return None.
     """
     url = "https://www.rba.gov.au/statistics/tables/csv/f16.csv"
-    with httpx.Client(timeout=30, headers={"User-Agent": "Mozilla/5.0"}) as client:
+    with httpx.Client(timeout=10, headers={"User-Agent": "Mozilla/5.0"}) as client:
         resp = client.get(url)
         resp.raise_for_status()
 
