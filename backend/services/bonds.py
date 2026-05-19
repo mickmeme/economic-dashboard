@@ -6,13 +6,14 @@ from datetime import datetime, timezone
 
 import httpx
 import pandas as pd
+import yfinance as yf
 from fastapi import HTTPException
 
 BONDS = [
-    {"ticker": "AU10Y",    "name": "AU Government Bonds",       "section": "bonds", "currency": "%", "source": "rba",  "rba_col": "cgs"},
-    {"ticker": "AUTIB10Y", "name": "AU Treasury Indexed Bonds", "section": "bonds", "currency": "%", "source": "rba",  "rba_col": "tib"},
-    {"ticker": "US10Y",    "name": "US Government Bonds",       "section": "bonds", "currency": "%", "source": "fred", "fred_id": "DGS10"},
-    {"ticker": "JP10Y",    "name": "Japanese Govt Bonds",       "section": "bonds", "currency": "%", "source": "fred", "fred_id": "IRLTLT01JPM156N"},
+    {"ticker": "AU10Y",    "name": "AU Government Bonds",       "section": "bonds", "currency": "%", "source": "rba",   "rba_col": "cgs"},
+    {"ticker": "AUTIB10Y", "name": "AU Treasury Indexed Bonds", "section": "bonds", "currency": "%", "source": "rba",   "rba_col": "tib"},
+    {"ticker": "US10Y",    "name": "US Government Bonds",       "section": "bonds", "currency": "%", "source": "yf",    "yf_ticker": "^TNX"},
+    {"ticker": "JP10Y",    "name": "Japanese Govt Bonds",       "section": "bonds", "currency": "%", "source": "fred",  "fred_id": "IRLTLT01JPM156N"},
 ]
 
 # How many calendar days to return for each period.
@@ -62,10 +63,22 @@ def _get_cached(key: str, fn):
             raise
 
 
+def _fetch_yf(yf_ticker: str) -> pd.Series:
+    """Fetch yield history from Yahoo Finance. ^TNX etc. quote yield in % p.a."""
+    df = yf.download(yf_ticker, period="10y", progress=False, auto_adjust=True)
+    if df.empty:
+        raise ValueError(f"No yfinance data for {yf_ticker}")
+    close = df["Close"].squeeze().dropna()
+    close.index = pd.to_datetime(close.index).tz_localize(None)
+    return close.rename(None)
+
+
 def _fetch_fred(series_id: str) -> pd.Series:
     """Fetch a FRED series CSV and return a daily DatetimeIndex Series (% p.a.)."""
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
-    with httpx.Client(timeout=15, headers={"User-Agent": "Mozilla/5.0"}) as client:
+    # Split timeout: 5 s to connect, 30 s to read (FRED is slow on some hosts)
+    timeout = httpx.Timeout(connect=5.0, read=30.0, write=5.0, pool=5.0)
+    with httpx.Client(timeout=timeout, headers={"User-Agent": "Mozilla/5.0"}) as client:
         resp = client.get(url)
         resp.raise_for_status()
 
@@ -173,6 +186,10 @@ def _ffill_daily(series: pd.Series) -> pd.Series:
 
 def _get_yield_series(bond: dict) -> pd.Series:
     """Return a daily DatetimeIndex Series of yield values (% p.a.) for the bond."""
+    if bond["source"] == "yf":
+        raw = _get_cached(f"yf_{bond['yf_ticker']}", lambda: _fetch_yf(bond["yf_ticker"]))
+        return _ffill_daily(raw)
+
     if bond["source"] == "fred":
         raw = _get_cached(f"fred_{bond['fred_id']}", lambda: _fetch_fred(bond["fred_id"]))
         return _ffill_daily(raw)
