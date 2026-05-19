@@ -2,12 +2,13 @@ import { useEffect } from 'react'
 import HistoryChart from './HistoryChart'
 
 export default function InstrumentModal({ instrument, onClose }) {
-  const isIndex = instrument.section !== 'crypto'
-  const id      = isIndex ? instrument.ticker : instrument.id
-  const type    = isIndex ? 'indices' : 'crypto'
+  const isCrypto = instrument.section === 'crypto'
+  const id       = isCrypto ? instrument.id : instrument.ticker
+  const type     = isCrypto ? 'crypto' : instrument.section === 'bonds' ? 'bonds' : 'indices'
+  const isYield  = instrument.currency === '%'
 
-  const isPositive = instrument.change_percent > 0
-  const isNegative = instrument.change_percent < 0
+  const isPositive = (instrument.change_percent ?? 0) > 0
+  const isNegative = (instrument.change_percent ?? 0) < 0
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -50,7 +51,9 @@ export default function InstrumentModal({ instrument, onClose }) {
             <div className="flex items-center gap-3 mt-1">
               <span className="text-3xl font-bold text-white">
                 {instrument.price != null
-                  ? instrument.price.toLocaleString(undefined, { maximumFractionDigits: 2 })
+                  ? isYield
+                    ? `${instrument.price.toFixed(2)}%`
+                    : instrument.price.toLocaleString(undefined, { maximumFractionDigits: 2 })
                   : '—'}
               </span>
               {instrument.change_percent != null && (
@@ -81,6 +84,8 @@ export default function InstrumentModal({ instrument, onClose }) {
             id={id}
             lineColor={isNegative ? '#ef4444' : '#22c55e'}
             chartClassName="h-72"
+            useWarmup={!isYield}
+            valueLabel={isYield ? 'Rate (% p.a.)' : 'Price'}
           />
         </div>
       </div>

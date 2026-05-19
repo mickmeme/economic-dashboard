@@ -40,7 +40,11 @@ export default function InstrumentCard({ instrument, period, onSelect }) {
     if (sparkChartData.length < 2) return instrument.change_percent
     const first = sparkChartData[0].value
     const last  = sparkChartData[sparkChartData.length - 1].value
-    if (!first || !last) return instrument.change_percent
+    if (first == null || last == null) return instrument.change_percent
+    if (instrument.currency === '%') {
+      // Yield instruments: show absolute change in percentage points (e.g. +0.05 = +5bp)
+      return Math.round((last - first) * 1000) / 1000
+    }
     return Math.round(((last - first) / first) * 10000) / 100
   })()
 
@@ -89,9 +93,13 @@ export default function InstrumentCard({ instrument, period, onSelect }) {
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-1">
             <span className="text-sm font-bold text-white leading-tight">
               {instrument.price != null
-                ? instrument.price.toLocaleString(undefined, { maximumFractionDigits: 2 })
+                ? instrument.currency === '%'
+                  ? `${instrument.price.toFixed(2)}%`
+                  : instrument.price.toLocaleString(undefined, { maximumFractionDigits: 2 })
                 : '—'}
-              <span className="text-[10px] text-[#3A3A3A] font-normal ml-1">{instrument.currency}</span>
+              {instrument.currency !== '%' && (
+                <span className="text-[10px] text-[#3A3A3A] font-normal ml-1">{instrument.currency}</span>
+              )}
             </span>
             {instrument.section === 'global' && (
               <MarketStatus ticker={instrument.ticker} />

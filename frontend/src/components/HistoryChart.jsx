@@ -82,11 +82,11 @@ function fmt(v) {
   return v != null ? v.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'
 }
 
-export default function HistoryChart({ type, id, lineColor = '#22c55e', chartClassName = 'h-48' }) {
+export default function HistoryChart({ type, id, lineColor = '#22c55e', chartClassName = 'h-48', useWarmup = true, valueLabel = 'Price' }) {
   const [period,    setPeriod]    = useState('1m')
   const [indicator, setIndicator] = useState('bb')
 
-  const fetchPeriod = WARMUP_PERIOD[period] ?? period
+  const fetchPeriod = useWarmup ? (WARMUP_PERIOD[period] ?? period) : period
   const { data: history, isLoading } = useHistory(type, id, fetchPeriod)
 
   // All data including warmup — used for seeding the indicator calculation
@@ -99,8 +99,9 @@ export default function HistoryChart({ type, id, lineColor = '#22c55e', chartCla
     ? calcBollingerBands(allData)
     : calcMAEnvelopes(allData)
 
-  // Slice to the display window so only the user's chosen period is rendered
-  const cutoffMs = Date.now() - (DISPLAY_WINDOW_MS[period] ?? Infinity)
+  // Slice to the display window so only the user's chosen period is rendered.
+  // useWarmup=false (e.g. bonds) skips the window filter — backend returns exactly the right range.
+  const cutoffMs  = useWarmup ? Date.now() - (DISPLAY_WINDOW_MS[period] ?? Infinity) : 0
   const chartData = allWithIndicator.filter(d => new Date(d.time).getTime() >= cutoffMs)
 
   const latestBB      = [...chartData].reverse().find(d => d.upper != null) ?? null
@@ -135,7 +136,7 @@ export default function HistoryChart({ type, id, lineColor = '#22c55e', chartCla
   })()
 
   const tooltipLabels = {
-    value:  'Price',
+    value:  valueLabel,
     upper:  isBB ? 'Upper BB'  : `Upper (+${(MAE_PCT * 100).toFixed(1)}%)`,
     middle: isBB ? 'SMA 20'    : `SMA ${MAE_PERIOD}`,
     lower:  isBB ? 'Lower BB'  : `Lower (-${(MAE_PCT * 100).toFixed(1)}%)`,
