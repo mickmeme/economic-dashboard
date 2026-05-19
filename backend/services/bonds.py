@@ -31,7 +31,10 @@ PERIOD_DAYS = {
     "1y_warmup":  5 * 365,
 }
 
-CACHE_TTL = 3600  # 1 hour
+CACHE_TTL   = 3600  # 1 hour for successful fetches
+FAILURE_TTL = 60    # 60 s for failed fetches — avoids serial retries on cold start
+
+_FAILURE = object()  # sentinel stored in cache on fetch failure
 
 _cache: dict[str, tuple[float, object]] = {}
 _locks: dict[str, threading.Lock] = {}
@@ -45,17 +48,24 @@ def _get_cached(key: str, fn):
     with _locks[key]:
         if key in _cache:
             fetched_at, data = _cache[key]
-            if time.time() - fetched_at < CACHE_TTL:
+            ttl = FAILURE_TTL if data is _FAILURE else CACHE_TTL
+            if time.time() - fetched_at < ttl:
+                if data is _FAILURE:
+                    raise RuntimeError(f"Cached fetch failure: {key}")
                 return data
-        data = fn()
-        _cache[key] = (time.time(), data)
-        return data
+        try:
+            data = fn()
+            _cache[key] = (time.time(), data)
+            return data
+        except Exception:
+            _cache[key] = (time.time(), _FAILURE)
+            raise
 
 
 def _fetch_fred(series_id: str) -> pd.Series:
     """Fetch a FRED series CSV and return a daily DatetimeIndex Series (% p.a.)."""
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
-    with httpx.Client(timeout=10, headers={"User-Agent": "Mozilla/5.0"}) as client:
+    with httpx.Client(timeout=15, headers={"User-Agent": "Mozilla/5.0"}) as client:
         resp = client.get(url)
         resp.raise_for_status()
 
@@ -74,7 +84,7 @@ def _fetch_rba() -> dict[str, pd.Series | None]:
     Falls back gracefully: missing columns return None.
     """
     url = "https://www.rba.gov.au/statistics/tables/csv/f16.csv"
-    with httpx.Client(timeout=10, headers={"User-Agent": "Mozilla/5.0"}) as client:
+    with httpx.Client(timeout=15, headers={"User-Agent": "Mozilla/5.0"}) as client:
         resp = client.get(url)
         resp.raise_for_status()
 
@@ -209,6 +219,15 @@ def _fetch_bond_summary(bond: dict) -> dict:
 
 
 def get_bonds() -> list[dict]:
+    # Pre-warm the shared RBA cache so both AU bonds don't race-and-retry it.
+    # On failure the sentinel is cached, so workers skip the retry immediately.
+    rba_bonds = [b for b in BONDS if b["source"] == "rba"]
+    if rba_bonds:
+        try:
+            _get_cached("rba_f16", _fetch_rba)
+        except Exception:
+            pass
+
     order = {b["ticker"]: i for i, b in enumerate(BONDS)}
     with ThreadPoolExecutor(max_workers=len(BONDS)) as pool:
         futures = {pool.submit(_fetch_bond_summary, bond): bond["ticker"] for bond in BONDS}
