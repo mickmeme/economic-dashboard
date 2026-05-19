@@ -1,3 +1,4 @@
+import re
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -10,10 +11,10 @@ import yfinance as yf
 from fastapi import HTTPException
 
 BONDS = [
-    {"ticker": "AU10Y",    "name": "AU Government Bonds",       "section": "bonds", "currency": "%", "source": "rba",   "rba_col": "cgs"},
-    {"ticker": "AUTIB10Y", "name": "AU Treasury Indexed Bonds", "section": "bonds", "currency": "%", "source": "rba",   "rba_col": "tib"},
-    {"ticker": "US10Y",    "name": "US Government Bonds",       "section": "bonds", "currency": "%", "source": "yf",    "yf_ticker": "^TNX"},
-    {"ticker": "JP10Y",    "name": "Japanese Govt Bonds",       "section": "bonds", "currency": "%", "source": "fred",  "fred_id": "IRLTLT01JPM156N"},
+    {"ticker": "AU10Y", "name": "AU Government Bonds", "section": "bonds", "currency": "%", "source": "oecd", "oecd_area": "AUS"},
+    {"ticker": "UK10Y", "name": "UK Government Bonds", "section": "bonds", "currency": "%", "source": "oecd", "oecd_area": "GBR"},
+    {"ticker": "US10Y", "name": "US Government Bonds", "section": "bonds", "currency": "%", "source": "yf",   "yf_ticker": "^TNX"},
+    {"ticker": "JP10Y", "name": "Japanese Govt Bonds", "section": "bonds", "currency": "%", "source": "oecd", "oecd_area": "JPN"},
 ]
 
 # How many calendar days to return for each period.
@@ -73,6 +74,41 @@ def _fetch_yf(yf_ticker: str) -> pd.Series:
     return close
 
 
+def _fetch_oecd(area_code: str) -> pd.Series:
+    """
+    Fetch OECD long-term interest rate (IRLT) for a country, monthly, % p.a.
+    OECD DF_FINMARK dataset; key dimensions: REF_AREA.FREQ.MEASURE + 6 wildcarded dims.
+    """
+    url = (
+        "https://sdmx.oecd.org/public/rest/data/"
+        f"OECD.SDD.STES,DSD_STES@DF_FINMARK,4.0/"
+        f"{area_code}.M.IRLT......?startPeriod=2010-01"
+    )
+    timeout = httpx.Timeout(connect=5.0, read=30.0, write=5.0, pool=5.0)
+    with httpx.Client(timeout=timeout, headers={"User-Agent": "Mozilla/5.0"}) as client:
+        resp = client.get(url)
+        resp.raise_for_status()
+
+    # Parse SDMX generic XML with regex (avoids namespace juggling)
+    periods = re.findall(r'ObsDimension[^/]* value="(\d{4}-\d{2})"', resp.text)
+    values  = re.findall(r'ObsValue value="([^"]+)"', resp.text)
+
+    if not periods:
+        raise ValueError(f"No OECD IRLT data for {area_code}")
+
+    records: dict[pd.Timestamp, float] = {}
+    for p, v in zip(periods, values):
+        try:
+            records[pd.to_datetime(p, format="%Y-%m")] = float(v)
+        except (ValueError, TypeError):
+            pass
+
+    if not records:
+        raise ValueError(f"Could not parse OECD data for {area_code}")
+
+    return pd.Series(records).sort_index()
+
+
 def _fetch_fred(series_id: str) -> pd.Series:
     """Fetch a FRED series CSV and return a daily DatetimeIndex Series (% p.a.)."""
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
@@ -90,91 +126,6 @@ def _fetch_fred(series_id: str) -> pd.Series:
     return df["value"]
 
 
-def _fetch_rba() -> dict[str, pd.Series | None]:
-    """
-    Fetch RBA Table F16 (Capital Market Yields – Government Bonds, monthly).
-    Returns {"cgs": Series, "tib": Series} — both in % p.a.
-    Falls back gracefully: missing columns return None.
-    """
-    url = "https://www.rba.gov.au/statistics/tables/csv/f16.csv"
-    with httpx.Client(timeout=15, headers={"User-Agent": "Mozilla/5.0"}) as client:
-        resp = client.get(url)
-        resp.raise_for_status()
-
-    text = resp.text
-    # Reject HTML responses (wrong URL / redirect)
-    if text.lstrip().startswith("<"):
-        raise ValueError("RBA returned HTML instead of CSV")
-
-    lines = text.splitlines()
-    if not lines:
-        raise ValueError("Empty RBA CSV response")
-
-    # Row 0: Series IDs. Row 1: Titles. Data rows: date strings like "Mar-1969" or "Mar 1969".
-    header_ids    = [c.strip() for c in lines[0].split(",")]
-    header_titles = [c.strip().lower() for c in lines[1].split(",")] if len(lines) > 1 else []
-
-    cgs_col = None
-    tib_col = None
-
-    # Search by series ID first
-    for i, sid in enumerate(header_ids):
-        sid_upper = sid.upper()
-        if "FCMYGBAG10" in sid_upper:
-            cgs_col = i
-        elif "FCMYTIB10" in sid_upper:
-            tib_col = i
-
-    # Fall back: search by title
-    if cgs_col is None or tib_col is None:
-        for i, title in enumerate(header_titles):
-            if "10" in title and "indexed" not in title and "bond" in title and cgs_col is None:
-                cgs_col = i
-            elif "10" in title and "indexed" in title and tib_col is None:
-                tib_col = i
-
-    # Parse data rows (skip header/metadata, find lines that start with a date)
-    records: list[dict] = []
-    for line in lines[1:]:
-        parts = [p.strip() for p in line.split(",")]
-        if not parts or not parts[0]:
-            continue
-        # Try several date formats used by the RBA
-        date = None
-        for fmt in ("%b-%Y", "%b %Y", "%B-%Y", "%B %Y"):
-            try:
-                date = pd.to_datetime(parts[0], format=fmt)
-                break
-            except ValueError:
-                pass
-        if date is None:
-            try:
-                date = pd.to_datetime(parts[0])
-            except Exception:
-                continue
-
-        def _safe(col):
-            if col is None or col >= len(parts) or not parts[col]:
-                return None
-            try:
-                return float(parts[col])
-            except ValueError:
-                return None
-
-        cgs_val = _safe(cgs_col)
-        tib_val = _safe(tib_col)
-        if cgs_val is not None or tib_val is not None:
-            records.append({"date": date, "cgs": cgs_val, "tib": tib_val})
-
-    if not records:
-        raise ValueError("No data rows found in RBA F16 CSV")
-
-    df = pd.DataFrame(records).set_index("date").sort_index()
-    cgs = df["cgs"].dropna() if cgs_col is not None else None
-    tib = df["tib"].dropna() if tib_col is not None else None
-    return {"cgs": cgs, "tib": tib}
-
-
 def _ffill_daily(series: pd.Series) -> pd.Series:
     """Forward-fill a Series to daily frequency up to today."""
     if series is None or len(series) == 0:
@@ -190,21 +141,16 @@ def _get_yield_series(bond: dict) -> pd.Series:
         raw = _get_cached(f"yf_{bond['yf_ticker']}", lambda: _fetch_yf(bond["yf_ticker"]))
         return _ffill_daily(raw)
 
+    if bond["source"] == "oecd":
+        area = bond["oecd_area"]
+        raw = _get_cached(f"oecd_{area}", lambda: _fetch_oecd(area))
+        return _ffill_daily(raw)
+
     if bond["source"] == "fred":
         raw = _get_cached(f"fred_{bond['fred_id']}", lambda: _fetch_fred(bond["fred_id"]))
         return _ffill_daily(raw)
 
-    # RBA source — try live fetch, fall back to FRED nominal AU yield
-    try:
-        rba = _get_cached("rba_f16", _fetch_rba)
-        raw = rba.get(bond["rba_col"])
-        if raw is None or len(raw) == 0:
-            raise ValueError("RBA column unavailable")
-        return _ffill_daily(raw)
-    except Exception:
-        # Fallback: Australian nominal 10Y from FRED
-        raw = _get_cached("fred_IRLTLT01AUM156N", lambda: _fetch_fred("IRLTLT01AUM156N"))
-        return _ffill_daily(raw)
+    raise ValueError(f"Unknown bond source: {bond['source']}")
 
 
 def _fetch_bond_summary(bond: dict) -> dict:
@@ -243,15 +189,6 @@ def _fetch_bond_summary(bond: dict) -> dict:
 
 
 def get_bonds() -> list[dict]:
-    # Pre-warm the shared RBA cache so both AU bonds don't race-and-retry it.
-    # On failure the sentinel is cached, so workers skip the retry immediately.
-    rba_bonds = [b for b in BONDS if b["source"] == "rba"]
-    if rba_bonds:
-        try:
-            _get_cached("rba_f16", _fetch_rba)
-        except Exception:
-            pass
-
     order = {b["ticker"]: i for i, b in enumerate(BONDS)}
     with ThreadPoolExecutor(max_workers=len(BONDS)) as pool:
         futures = {pool.submit(_fetch_bond_summary, bond): bond["ticker"] for bond in BONDS}
