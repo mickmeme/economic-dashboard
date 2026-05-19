@@ -65,7 +65,7 @@ def _get_cached(key: str, fn):
 
 def _fetch_yf(yf_ticker: str) -> pd.Series:
     """Fetch yield history from Yahoo Finance. ^TNX etc. quote yield in % p.a."""
-    hist = yf.Ticker(yf_ticker).history(period="10y", interval="1d")
+    hist = yf.Ticker(yf_ticker).history(period="5y", interval="1d")
     if hist.empty:
         raise ValueError(f"No yfinance data for {yf_ticker}")
     close = hist["Close"].dropna()
@@ -76,8 +76,8 @@ def _fetch_yf(yf_ticker: str) -> pd.Series:
 def _fetch_fred(series_id: str) -> pd.Series:
     """Fetch a FRED series CSV and return a daily DatetimeIndex Series (% p.a.)."""
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
-    # Split timeout: 5 s to connect, 30 s to read (FRED is slow on some hosts)
-    timeout = httpx.Timeout(connect=5.0, read=30.0, write=5.0, pool=5.0)
+    # 5s connect, 60s read — FRED throttles cloud IPs with slow responses
+    timeout = httpx.Timeout(connect=5.0, read=60.0, write=5.0, pool=5.0)
     with httpx.Client(timeout=timeout, headers={"User-Agent": "Mozilla/5.0"}) as client:
         resp = client.get(url)
         resp.raise_for_status()
@@ -210,9 +210,16 @@ def _get_yield_series(bond: dict) -> pd.Series:
 def _fetch_bond_summary(bond: dict) -> dict:
     ticker = bond["ticker"]
     try:
-        series = _get_yield_series(bond)
-        price  = round(float(series.iloc[-1]), 3) if len(series) >= 1 else None
-        change = round(float(series.iloc[-1]) - float(series.iloc[-2]), 3) if len(series) >= 2 else None
+        if bond["source"] == "yf":
+            # fast_info avoids the heavy history() endpoint that gets rate-limited on cloud IPs
+            fi     = yf.Ticker(bond["yf_ticker"]).fast_info
+            price  = round(float(fi.last_price), 3) if fi.last_price else None
+            prev   = fi.previous_close
+            change = round(float(fi.last_price) - float(prev), 3) if fi.last_price and prev else None
+        else:
+            series = _get_yield_series(bond)
+            price  = round(float(series.iloc[-1]), 3) if len(series) >= 1 else None
+            change = round(float(series.iloc[-1]) - float(series.iloc[-2]), 3) if len(series) >= 2 else None
         return {
             "ticker":         ticker,
             "name":           bond["name"],
