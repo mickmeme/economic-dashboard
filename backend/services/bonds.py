@@ -65,12 +65,12 @@ def _get_cached(key: str, fn):
 
 def _fetch_yf(yf_ticker: str) -> pd.Series:
     """Fetch yield history from Yahoo Finance. ^TNX etc. quote yield in % p.a."""
-    df = yf.download(yf_ticker, period="10y", progress=False, auto_adjust=True)
-    if df.empty:
+    hist = yf.Ticker(yf_ticker).history(period="10y", interval="1d")
+    if hist.empty:
         raise ValueError(f"No yfinance data for {yf_ticker}")
-    close = df["Close"].squeeze().dropna()
+    close = hist["Close"].dropna()
     close.index = pd.to_datetime(close.index).tz_localize(None)
-    return close.rename(None)
+    return close
 
 
 def _fetch_fred(series_id: str) -> pd.Series:
