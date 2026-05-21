@@ -3,7 +3,7 @@ import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import StringIO
-from datetime import datetime, timezone
+from datetime import datetime, date, timezone
 
 import httpx
 import pandas as pd
@@ -11,26 +11,22 @@ import yfinance as yf
 from fastapi import HTTPException
 
 BONDS = [
-    {"ticker": "AU10Y", "name": "AU Government Bonds", "section": "bonds", "currency": "%", "source": "oecd", "oecd_area": "AUS"},
-    {"ticker": "UK10Y", "name": "UK Government Bonds", "section": "bonds", "currency": "%", "source": "oecd", "oecd_area": "GBR"},
-    {"ticker": "US10Y", "name": "US Government Bonds", "section": "bonds", "currency": "%", "source": "yf",   "yf_ticker": "^TNX"},
-    {"ticker": "JP10Y", "name": "Japanese Govt Bonds", "section": "bonds", "currency": "%", "source": "oecd", "oecd_area": "JPN"},
+    {"ticker": "AU10Y", "name": "AU Government Bonds", "section": "bonds", "currency": "%", "maturity": "10Y", "source": "oecd",        "oecd_area": "AUS"},
+    {"ticker": "UK10Y", "name": "UK Government Bonds", "section": "bonds", "currency": "%", "maturity": "10Y", "source": "oecd",        "oecd_area": "GBR"},
+    {"ticker": "US10Y", "name": "US Government Bonds", "section": "bonds", "currency": "%", "maturity": "10Y", "source": "yf",          "yf_ticker": "^TNX"},
+    {"ticker": "JP10Y", "name": "Japanese Govt Bonds", "section": "bonds", "currency": "%", "maturity": "10Y", "source": "oecd",        "oecd_area": "JPN"},
+    {"ticker": "US5Y",  "name": "US 5Y Treasury",      "section": "bonds", "currency": "%", "maturity": "5Y",  "source": "yf",          "yf_ticker": "^FVX"},
+    {"ticker": "US3Y",  "name": "US 3Y Treasury",      "section": "bonds", "currency": "%", "maturity": "3Y",  "source": "us_treasury", "treasury_tag": "BC_3YEAR"},
 ]
 
 # How many calendar days to return for each period.
 # No warmup needed — bonds use useWarmup=false on the frontend.
-# Periods return enough data that BB(20) has sufficient seed points.
 PERIOD_DAYS = {
-    "1d":        90,
-    "1w":        180,
-    "1m":        365,
-    "3m":        3 * 365,
-    "1y":        5 * 365,
-    "1d_warmup":  90,
-    "1w_warmup":  180,
-    "1m_warmup":  365,
-    "3m_warmup":  3 * 365,
-    "1y_warmup":  5 * 365,
+    "1d":  90,
+    "1w":  180,
+    "1m":  365,
+    "3m":  3 * 365,
+    "1y":  5 * 365,
 }
 
 CACHE_TTL   = 3600  # 1 hour for successful fetches
@@ -65,7 +61,7 @@ def _get_cached(key: str, fn):
 
 
 def _fetch_yf(yf_ticker: str) -> pd.Series:
-    """Fetch yield history from Yahoo Finance. ^TNX etc. quote yield in % p.a."""
+    """Fetch yield history from Yahoo Finance. ^TNX/^FVX etc. quote yield in % p.a."""
     hist = yf.Ticker(yf_ticker).history(period="5y", interval="1d")
     if hist.empty:
         raise ValueError(f"No yfinance data for {yf_ticker}")
@@ -74,10 +70,63 @@ def _fetch_yf(yf_ticker: str) -> pd.Series:
     return close
 
 
+def _fetch_one_treasury_month(ym: str, bc_tag: str) -> list[tuple]:
+    """Fetch one month of US Treasury yield curve XML and extract (date, value) pairs."""
+    url = (
+        "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml"
+        f"?data=daily_treasury_yield_curve&field_tdr_date_value_month={ym}"
+    )
+    timeout = httpx.Timeout(connect=5.0, read=15.0, write=5.0, pool=5.0)
+    with httpx.Client(timeout=timeout, headers={"User-Agent": "Mozilla/5.0"}) as client:
+        resp = client.get(url)
+        resp.raise_for_status()
+
+    result = []
+    for entry in re.findall(r"<entry>.*?</entry>", resp.text, re.DOTALL):
+        dt_m  = re.search(r"NEW_DATE[^>]*>(\d{4}-\d{2}-\d{2})", entry)
+        val_m = re.search(rf"<d:{bc_tag}[^>]*>([^<]+)<", entry)
+        if dt_m and val_m:
+            try:
+                result.append((pd.to_datetime(dt_m.group(1)), float(val_m.group(1))))
+            except (ValueError, TypeError):
+                pass
+    return result
+
+
+def _fetch_us_treasury(bc_tag: str) -> pd.Series:
+    """
+    Fetch 5 years of US Treasury daily yield data for a given maturity tag.
+    Fetches the last 60 months in parallel (20 at a time) and combines.
+    bc_tag: 'BC_3YEAR', 'BC_5YEAR', 'BC_10YEAR', etc.
+    """
+    from datetime import timedelta
+    today = date.today()
+    months = []
+    d = today.replace(day=1)
+    for _ in range(60):
+        months.append(d.strftime("%Y%m"))
+        d = (d - timedelta(days=1)).replace(day=1)  # step back one month
+
+    records: dict[pd.Timestamp, float] = {}
+    with ThreadPoolExecutor(max_workers=20) as pool:
+        futures = {pool.submit(_fetch_one_treasury_month, ym, bc_tag): ym for ym in months}
+        for future in as_completed(futures):
+            try:
+                for dt, val in future.result():
+                    records[dt] = val
+            except Exception:
+                pass  # skip months that fail (e.g. future months with no data)
+
+    if not records:
+        raise ValueError(f"No US Treasury data for {bc_tag}")
+
+    return pd.Series(records).sort_index()
+
+
 def _fetch_oecd(area_code: str) -> pd.Series:
     """
     Fetch OECD long-term interest rate (IRLT) for a country, monthly, % p.a.
-    OECD DF_FINMARK dataset; key dimensions: REF_AREA.FREQ.MEASURE + 6 wildcarded dims.
+    OECD DF_FINMARK dataset; 9 dimensions, last 6 wildcarded.
     """
     url = (
         "https://sdmx.oecd.org/public/rest/data/"
@@ -89,7 +138,6 @@ def _fetch_oecd(area_code: str) -> pd.Series:
         resp = client.get(url)
         resp.raise_for_status()
 
-    # Parse SDMX generic XML with regex (avoids namespace juggling)
     periods = re.findall(r'ObsDimension[^/]* value="(\d{4}-\d{2})"', resp.text)
     values  = re.findall(r'ObsValue value="([^"]+)"', resp.text)
 
@@ -107,23 +155,6 @@ def _fetch_oecd(area_code: str) -> pd.Series:
         raise ValueError(f"Could not parse OECD data for {area_code}")
 
     return pd.Series(records).sort_index()
-
-
-def _fetch_fred(series_id: str) -> pd.Series:
-    """Fetch a FRED series CSV and return a daily DatetimeIndex Series (% p.a.)."""
-    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
-    # 5s connect, 60s read — FRED throttles cloud IPs with slow responses
-    timeout = httpx.Timeout(connect=5.0, read=60.0, write=5.0, pool=5.0)
-    with httpx.Client(timeout=timeout, headers={"User-Agent": "Mozilla/5.0"}) as client:
-        resp = client.get(url)
-        resp.raise_for_status()
-
-    df = pd.read_csv(StringIO(resp.text), na_values=["."])
-    df.columns = ["date", "value"]
-    df["date"]  = pd.to_datetime(df["date"], errors="coerce")
-    df["value"] = pd.to_numeric(df["value"], errors="coerce")
-    df = df.dropna().set_index("date").sort_index()
-    return df["value"]
 
 
 def _ffill_daily(series: pd.Series) -> pd.Series:
@@ -146,8 +177,9 @@ def _get_yield_series(bond: dict) -> pd.Series:
         raw = _get_cached(f"oecd_{area}", lambda: _fetch_oecd(area))
         return _ffill_daily(raw)
 
-    if bond["source"] == "fred":
-        raw = _get_cached(f"fred_{bond['fred_id']}", lambda: _fetch_fred(bond["fred_id"]))
+    if bond["source"] == "us_treasury":
+        tag = bond["treasury_tag"]
+        raw = _get_cached(f"us_treasury_{tag}", lambda: _fetch_us_treasury(tag))
         return _ffill_daily(raw)
 
     raise ValueError(f"Unknown bond source: {bond['source']}")
@@ -171,6 +203,7 @@ def _fetch_bond_summary(bond: dict) -> dict:
             "name":           bond["name"],
             "section":        bond["section"],
             "currency":       bond["currency"],
+            "maturity":       bond["maturity"],
             "price":          price,
             "change_percent": change,
             "updated_at":     datetime.now(timezone.utc).isoformat(),
@@ -181,6 +214,7 @@ def _fetch_bond_summary(bond: dict) -> dict:
             "name":           bond["name"],
             "section":        bond["section"],
             "currency":       bond["currency"],
+            "maturity":       bond["maturity"],
             "price":          None,
             "change_percent": None,
             "updated_at":     datetime.now(timezone.utc).isoformat(),
