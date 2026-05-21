@@ -15,7 +15,9 @@ BONDS = [
     {"ticker": "UK10Y", "name": "UK Government Bonds", "section": "bonds", "currency": "%", "maturity": "10Y", "source": "oecd",        "oecd_area": "GBR"},
     {"ticker": "US10Y", "name": "US Government Bonds", "section": "bonds", "currency": "%", "maturity": "10Y", "source": "yf",          "yf_ticker": "^TNX"},
     {"ticker": "JP10Y", "name": "Japanese Govt Bonds", "section": "bonds", "currency": "%", "maturity": "10Y", "source": "oecd",        "oecd_area": "JPN"},
+    {"ticker": "AU5Y",  "name": "AU 5Y Government",    "section": "bonds", "currency": "%", "maturity": "5Y",  "source": "dbnomics",    "dbn_id": "RBA/F2.1/FCMYGBAG5"},
     {"ticker": "US5Y",  "name": "US 5Y Treasury",      "section": "bonds", "currency": "%", "maturity": "5Y",  "source": "yf",          "yf_ticker": "^FVX"},
+    {"ticker": "AU3Y",  "name": "AU 3Y Government",    "section": "bonds", "currency": "%", "maturity": "3Y",  "source": "dbnomics",    "dbn_id": "RBA/F2.1/FCMYGBAG3"},
     {"ticker": "US3Y",  "name": "US 3Y Treasury",      "section": "bonds", "currency": "%", "maturity": "3Y",  "source": "us_treasury", "treasury_tag": "BC_3YEAR"},
 ]
 
@@ -123,6 +125,37 @@ def _fetch_us_treasury(bc_tag: str) -> pd.Series:
     return pd.Series(records).sort_index()
 
 
+def _fetch_dbnomics(series_id: str) -> pd.Series:
+    """
+    Fetch a series from DBnomics (db.nomics.world).
+    series_id: 'PROVIDER/DATASET/CODE', e.g. 'RBA/F2.1/FCMYGBAG3'
+    Returns a monthly DatetimeIndex Series (% p.a.), forward-filled later.
+    """
+    provider, dataset, code = series_id.split("/", 2)
+    url = f"https://api.db.nomics.world/v22/series/{provider}/{dataset}/{code}?observations=1"
+    timeout = httpx.Timeout(connect=5.0, read=30.0, write=5.0, pool=5.0)
+    with httpx.Client(timeout=timeout, headers={"User-Agent": "Mozilla/5.0"}) as client:
+        resp = client.get(url)
+        resp.raise_for_status()
+
+    doc = resp.json().get("series", {}).get("docs", [{}])[0]
+    periods = doc.get("period", [])
+    values  = doc.get("value", [])
+
+    records: dict[pd.Timestamp, float] = {}
+    for p, v in zip(periods, values):
+        if v is not None:
+            try:
+                records[pd.to_datetime(p)] = float(v)
+            except (ValueError, TypeError):
+                pass
+
+    if not records:
+        raise ValueError(f"No DBnomics data for {series_id}")
+
+    return pd.Series(records).sort_index()
+
+
 def _fetch_oecd(area_code: str) -> pd.Series:
     """
     Fetch OECD long-term interest rate (IRLT) for a country, monthly, % p.a.
@@ -170,6 +203,11 @@ def _get_yield_series(bond: dict) -> pd.Series:
     """Return a daily DatetimeIndex Series of yield values (% p.a.) for the bond."""
     if bond["source"] == "yf":
         raw = _get_cached(f"yf_{bond['yf_ticker']}", lambda: _fetch_yf(bond["yf_ticker"]))
+        return _ffill_daily(raw)
+
+    if bond["source"] == "dbnomics":
+        dbn_id = bond["dbn_id"]
+        raw = _get_cached(f"dbn_{dbn_id}", lambda: _fetch_dbnomics(dbn_id))
         return _ffill_daily(raw)
 
     if bond["source"] == "oecd":
