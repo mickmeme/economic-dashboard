@@ -20,33 +20,28 @@ function timeAgo(dateStr) {
 
 function useDragScroll() {
   const ref = useRef(null)
-  const isDragging = useRef(false)
-  const startX = useRef(0)
-  const scrollLeft = useRef(0)
+  const dragging = useRef(false)
+  const lastX = useRef(0)
   const moved = useRef(false)
 
   const onMouseDown = useCallback(e => {
     if (e.button !== 0) return
-    isDragging.current = true
-    startX.current = e.clientX
-    scrollLeft.current = ref.current.scrollLeft
+    e.preventDefault()
+    dragging.current = true
+    lastX.current = e.clientX
     moved.current = false
-    ref.current.style.cursor = 'grabbing'
-    document.body.style.userSelect = 'none'
   }, [])
 
   useEffect(() => {
     const onMouseMove = e => {
-      if (!isDragging.current) return
-      const dx = e.clientX - startX.current
-      if (Math.abs(dx) > 4) moved.current = true
-      ref.current.scrollLeft = scrollLeft.current - dx
+      if (!dragging.current) return
+      const dx = lastX.current - e.clientX
+      lastX.current = e.clientX
+      if (Math.abs(dx) > 1) moved.current = true
+      ref.current.scrollLeft += dx
     }
     const onMouseUp = () => {
-      if (!isDragging.current) return
-      isDragging.current = false
-      if (ref.current) ref.current.style.cursor = 'grab'
-      document.body.style.userSelect = ''
+      dragging.current = false
     }
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
