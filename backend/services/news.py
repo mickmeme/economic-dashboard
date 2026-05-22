@@ -19,14 +19,14 @@ _locks_mutex = threading.Lock()
 
 _NEWSDATA_CFG = {
     "global":     {"category": "world"},
-    "gaming":     {"q": "gaming OR esports OR \"video games\""},
+    "gaming":     {"q": "\"Switch 2\" OR \"Nintendo Switch 2\" OR \"Xbox game\" OR \"Xbox Series\" OR \"PC game\" OR \"PC games\" OR \"Steam game\" OR \"Steam release\""},
     "markets":    {"category": "business"},
     "3dprinting": {"q": "\"3D printing\" OR \"additive manufacturing\""},
 }
 
 _NEWSAPI_CFG = {
     "global":     {"_ep": "top-headlines", "category": "general"},
-    "gaming":     {"_ep": "everything",    "q": "gaming OR esports OR \"video games\"",        "sortBy": "publishedAt"},
+    "gaming":     {"_ep": "everything",    "q": "\"Switch 2\" OR \"Nintendo Switch 2\" OR \"Xbox game\" OR \"Xbox Series\" OR \"PC game\" OR \"PC games\" OR \"Steam game\" OR \"Steam release\"", "sortBy": "publishedAt"},
     "markets":    {"_ep": "top-headlines", "category": "business"},
     "3dprinting": {"_ep": "everything",    "q": "\"3D printing\" OR \"additive manufacturing\"", "sortBy": "publishedAt"},
 }
