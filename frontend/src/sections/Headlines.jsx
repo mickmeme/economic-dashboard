@@ -1,3 +1,4 @@
+import { useRef, useCallback } from 'react'
 import { useNews } from '../hooks/useMarketData'
 
 const SECTIONS = [
@@ -17,17 +18,47 @@ function timeAgo(dateStr) {
   return `${Math.floor(h / 24)}d ago`
 }
 
+function useDragScroll() {
+  const ref = useRef(null)
+  const drag = useRef({ active: false, startX: 0, scrollLeft: 0, moved: false })
+
+  const onMouseDown = useCallback(e => {
+    drag.current = { active: true, startX: e.pageX, scrollLeft: ref.current.scrollLeft, moved: false }
+    ref.current.style.cursor = 'grabbing'
+  }, [])
+
+  const onMouseMove = useCallback(e => {
+    if (!drag.current.active) return
+    const dx = e.pageX - drag.current.startX
+    if (Math.abs(dx) > 4) drag.current.moved = true
+    ref.current.scrollLeft = drag.current.scrollLeft - dx
+  }, [])
+
+  const onMouseUp = useCallback(() => {
+    drag.current.active = false
+    if (ref.current) ref.current.style.cursor = 'grab'
+  }, [])
+
+  // Prevent link clicks when the user was dragging
+  const onClickCapture = useCallback(e => {
+    if (drag.current.moved) e.preventDefault()
+  }, [])
+
+  return { ref, onMouseDown, onMouseMove, onMouseUp, onMouseLeave: onMouseUp, onClickCapture }
+}
+
 function ArticleCard({ article }) {
   return (
     <a
       href={article.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex-shrink-0 w-52 bg-[#111] border border-[#1C1C1C] rounded overflow-hidden hover:border-[#333] transition-colors duration-150 flex flex-col"
+      className="flex-shrink-0 w-52 bg-[#111] border border-[#1C1C1C] rounded overflow-hidden hover:border-[#333] transition-colors duration-150 flex flex-col select-none"
     >
       <img
         src={article.image_url}
         alt=""
+        draggable={false}
         className="w-full h-32 object-cover bg-[#1A1A1A]"
         onError={e => { e.currentTarget.style.display = 'none' }}
       />
@@ -64,6 +95,7 @@ function ArticleSkeleton() {
 
 function NewsSection({ sectionKey, label }) {
   const { data, isLoading, error } = useNews(sectionKey)
+  const dragScroll = useDragScroll()
 
   return (
     <section className="mb-6">
@@ -75,17 +107,23 @@ function NewsSection({ sectionKey, label }) {
         <div className="flex-1 h-px bg-[#1C1C1C]" />
       </div>
 
-      <div className="relative">
-        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
-          {isLoading
-            ? Array.from({ length: 5 }).map((_, i) => <ArticleSkeleton key={i} />)
-            : error
-              ? <p className="text-red-400 text-sm py-4">Failed to load: {error.message}</p>
-              : (data ?? []).length === 0
-                ? <p className="text-[#444] text-sm py-4">No articles available.</p>
-                : (data ?? []).map((a, i) => <ArticleCard key={i} article={a} />)
-          }
-        </div>
+      <div
+        ref={dragScroll.ref}
+        onMouseDown={dragScroll.onMouseDown}
+        onMouseMove={dragScroll.onMouseMove}
+        onMouseUp={dragScroll.onMouseUp}
+        onMouseLeave={dragScroll.onMouseLeave}
+        onClickCapture={dragScroll.onClickCapture}
+        className="flex gap-3 overflow-x-auto pb-2 scrollbar-none cursor-grab"
+      >
+        {isLoading
+          ? Array.from({ length: 5 }).map((_, i) => <ArticleSkeleton key={i} />)
+          : error
+            ? <p className="text-red-400 text-sm py-4">Failed to load: {error.message}</p>
+            : (data ?? []).length === 0
+              ? <p className="text-[#444] text-sm py-4">No articles available.</p>
+              : (data ?? []).map((a, i) => <ArticleCard key={i} article={a} />)
+        }
       </div>
     </section>
   )
