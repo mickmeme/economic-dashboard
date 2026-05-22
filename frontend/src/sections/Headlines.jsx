@@ -20,31 +20,41 @@ function timeAgo(dateStr) {
 
 function useDragScroll() {
   const ref = useRef(null)
-  const drag = useRef({ active: false, startX: 0, scrollLeft: 0, moved: false })
+  const state = useRef({ startX: 0, scrollLeft: 0, moved: false })
 
-  const onMouseDown = useCallback(e => {
-    drag.current = { active: true, startX: e.pageX, scrollLeft: ref.current.scrollLeft, moved: false }
-    ref.current.style.cursor = 'grabbing'
+  const onPointerDown = useCallback(e => {
+    if (e.button !== 0) return
+    const el = ref.current
+    state.current = { startX: e.clientX, scrollLeft: el.scrollLeft, moved: false }
+    el.setPointerCapture(e.pointerId)
+    el.style.cursor = 'grabbing'
+    el.style.userSelect = 'none'
   }, [])
 
-  const onMouseMove = useCallback(e => {
-    if (!drag.current.active) return
-    const dx = e.pageX - drag.current.startX
-    if (Math.abs(dx) > 4) drag.current.moved = true
-    ref.current.scrollLeft = drag.current.scrollLeft - dx
+  const onPointerMove = useCallback(e => {
+    if (!ref.current.hasPointerCapture(e.pointerId)) return
+    const dx = e.clientX - state.current.startX
+    if (Math.abs(dx) > 4) state.current.moved = true
+    ref.current.scrollLeft = state.current.scrollLeft - dx
   }, [])
 
-  const onMouseUp = useCallback(() => {
-    drag.current.active = false
-    if (ref.current) ref.current.style.cursor = 'grab'
+  const onPointerUp = useCallback(e => {
+    const el = ref.current
+    if (!el) return
+    el.releasePointerCapture(e.pointerId)
+    el.style.cursor = 'grab'
+    el.style.userSelect = ''
   }, [])
 
-  // Prevent link clicks when the user was dragging
   const onClickCapture = useCallback(e => {
-    if (drag.current.moved) e.preventDefault()
+    if (state.current.moved) {
+      e.preventDefault()
+      e.stopPropagation()
+      state.current.moved = false
+    }
   }, [])
 
-  return { ref, onMouseDown, onMouseMove, onMouseUp, onMouseLeave: onMouseUp, onClickCapture }
+  return { ref, onPointerDown, onPointerMove, onPointerUp, onClickCapture }
 }
 
 function ArticleCard({ article }) {
@@ -109,10 +119,9 @@ function NewsSection({ sectionKey, label }) {
 
       <div
         ref={dragScroll.ref}
-        onMouseDown={dragScroll.onMouseDown}
-        onMouseMove={dragScroll.onMouseMove}
-        onMouseUp={dragScroll.onMouseUp}
-        onMouseLeave={dragScroll.onMouseLeave}
+        onPointerDown={dragScroll.onPointerDown}
+        onPointerMove={dragScroll.onPointerMove}
+        onPointerUp={dragScroll.onPointerUp}
         onClickCapture={dragScroll.onClickCapture}
         className="flex gap-3 overflow-x-auto pb-2 scrollbar-none cursor-grab"
       >
