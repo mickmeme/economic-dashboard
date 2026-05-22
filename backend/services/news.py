@@ -21,14 +21,14 @@ _NEWSDATA_CFG = {
     "global":     {"category": "world"},
     "gaming":     {"q": "\"Switch 2\" OR \"Nintendo Switch 2\" OR \"Xbox game\" OR \"Xbox Series\" OR \"PC game\" OR \"PC games\" OR \"Steam game\" OR \"Steam release\""},
     "markets":    {"category": "business"},
-    "3dprinting": {"q": "\"3D printing\" OR \"additive manufacturing\""},
+    "3dprinting": {"q": "\"new 3D printer\" OR \"3D printer review\" OR \"3D printer release\" OR \"3D printing technology\" OR \"3D printer discount\" OR \"3D printer deal\" OR \"3D printer sale\" OR \"3D printable model\" OR \"free 3D model\" OR \"printable model\""},
 }
 
 _NEWSAPI_CFG = {
     "global":     {"_ep": "top-headlines", "category": "general"},
     "gaming":     {"_ep": "everything",    "q": "\"Switch 2\" OR \"Nintendo Switch 2\" OR \"Xbox game\" OR \"Xbox Series\" OR \"PC game\" OR \"PC games\" OR \"Steam game\" OR \"Steam release\"", "sortBy": "publishedAt"},
     "markets":    {"_ep": "top-headlines", "category": "business"},
-    "3dprinting": {"_ep": "everything",    "q": "\"3D printing\" OR \"additive manufacturing\"", "sortBy": "publishedAt"},
+    "3dprinting": {"_ep": "everything",    "q": "\"new 3D printer\" OR \"3D printer review\" OR \"3D printer release\" OR \"3D printing technology\" OR \"3D printer discount\" OR \"3D printer deal\" OR \"3D printer sale\" OR \"3D printable model\" OR \"free 3D model\" OR \"printable model\"", "sortBy": "publishedAt"},
 }
 
 
