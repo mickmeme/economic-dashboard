@@ -11,6 +11,7 @@ import Bonds from './sections/Bonds'
 import Ratios from './sections/Ratios'
 import RealEstate from './sections/RealEstate'
 import Resources from './sections/Resources'
+import Headlines from './sections/Headlines'
 
 const queryClient = new QueryClient()
 
@@ -19,6 +20,7 @@ const TABS = [
   { key: 'ratios',      label: 'Ratios'       },
   { key: 'realestate',  label: 'Real Estate'  },
   { key: 'resources',   label: 'Resources'    },
+  { key: 'headlines',   label: 'Daily Headlines' },
 ]
 
 function Dashboard() {
@@ -69,6 +71,8 @@ function Dashboard() {
           <Ratios />
         ) : activeTab === 'realestate' ? (
           <RealEstate />
+        ) : activeTab === 'headlines' ? (
+          <Headlines />
         ) : (
           <Resources />
         )}

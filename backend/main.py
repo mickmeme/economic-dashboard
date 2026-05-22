@@ -10,6 +10,7 @@ from services.yields import get_yield_spread
 from services.realestate import get_state_overview, get_suburb_overview
 from services.resources import get_resources_list, get_resource_history, VALID_KEYS as RESOURCE_KEYS
 from services.bonds import get_bonds, get_bond_history, BONDS
+from services.news import get_news, VALID_CATEGORIES as NEWS_CATEGORIES
 
 app = FastAPI(title="Economic Dashboard API")
 
@@ -130,3 +131,15 @@ def realestate_suburbs():
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Real estate data unavailable: {exc}")
+
+
+@app.get("/api/news/{category}")
+def news(category: str):
+    if category not in NEWS_CATEGORIES:
+        raise HTTPException(status_code=404, detail=f"News category '{category}' not found")
+    try:
+        return get_news(category)
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"News unavailable: {exc}")

@@ -106,6 +106,16 @@ export function useRealEstateSuburbs() {
   })
 }
 
+export function useNews(category) {
+  return useQuery({
+    queryKey: ['news', category],
+    queryFn: () => fetchJson(`${API_BASE}/api/news/${category}`),
+    staleTime: 25 * 60 * 1000,
+    refetchInterval: 30 * 60 * 1000,
+    retry: 1,
+  })
+}
+
 export function useHistory(type, id, period, enabled = true) {
   return useQuery({
     queryKey: [type, id, 'history', period],
