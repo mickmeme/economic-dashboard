@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
 import { useNews } from '../hooks/useMarketData'
 
 const SECTIONS = [
@@ -20,41 +20,51 @@ function timeAgo(dateStr) {
 
 function useDragScroll() {
   const ref = useRef(null)
-  const state = useRef({ startX: 0, scrollLeft: 0, moved: false })
+  const isDragging = useRef(false)
+  const startX = useRef(0)
+  const scrollLeft = useRef(0)
+  const moved = useRef(false)
 
-  const onPointerDown = useCallback(e => {
+  const onMouseDown = useCallback(e => {
     if (e.button !== 0) return
-    const el = ref.current
-    state.current = { startX: e.clientX, scrollLeft: el.scrollLeft, moved: false }
-    el.setPointerCapture(e.pointerId)
-    el.style.cursor = 'grabbing'
-    el.style.userSelect = 'none'
+    isDragging.current = true
+    startX.current = e.clientX
+    scrollLeft.current = ref.current.scrollLeft
+    moved.current = false
+    ref.current.style.cursor = 'grabbing'
+    document.body.style.userSelect = 'none'
   }, [])
 
-  const onPointerMove = useCallback(e => {
-    if (!ref.current.hasPointerCapture(e.pointerId)) return
-    const dx = e.clientX - state.current.startX
-    if (Math.abs(dx) > 4) state.current.moved = true
-    ref.current.scrollLeft = state.current.scrollLeft - dx
-  }, [])
-
-  const onPointerUp = useCallback(e => {
-    const el = ref.current
-    if (!el) return
-    el.releasePointerCapture(e.pointerId)
-    el.style.cursor = 'grab'
-    el.style.userSelect = ''
-  }, [])
-
-  const onClickCapture = useCallback(e => {
-    if (state.current.moved) {
-      e.preventDefault()
-      e.stopPropagation()
-      state.current.moved = false
+  useEffect(() => {
+    const onMouseMove = e => {
+      if (!isDragging.current) return
+      const dx = e.clientX - startX.current
+      if (Math.abs(dx) > 4) moved.current = true
+      ref.current.scrollLeft = scrollLeft.current - dx
+    }
+    const onMouseUp = () => {
+      if (!isDragging.current) return
+      isDragging.current = false
+      if (ref.current) ref.current.style.cursor = 'grab'
+      document.body.style.userSelect = ''
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
     }
   }, [])
 
-  return { ref, onPointerDown, onPointerMove, onPointerUp, onClickCapture }
+  const onClickCapture = useCallback(e => {
+    if (moved.current) {
+      e.preventDefault()
+      e.stopPropagation()
+      moved.current = false
+    }
+  }, [])
+
+  return { ref, onMouseDown, onClickCapture }
 }
 
 function ArticleCard({ article }) {
@@ -119,9 +129,7 @@ function NewsSection({ sectionKey, label }) {
 
       <div
         ref={dragScroll.ref}
-        onPointerDown={dragScroll.onPointerDown}
-        onPointerMove={dragScroll.onPointerMove}
-        onPointerUp={dragScroll.onPointerUp}
+        onMouseDown={dragScroll.onMouseDown}
         onClickCapture={dragScroll.onClickCapture}
         className="flex gap-3 overflow-x-auto pb-2 scrollbar-none cursor-grab"
       >
