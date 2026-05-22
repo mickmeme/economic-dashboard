@@ -106,9 +106,18 @@ def get_news(category: str) -> list[dict]:
 
     def fetch():
         if NEWSDATA_KEY:
-            return _fetch_newsdata(category)
-        if NEWSAPI_KEY:
-            return _fetch_newsapi(category)
-        raise ValueError("No news API key set — add NEWSDATA_KEY or NEWSAPI_KEY to environment")
+            articles = _fetch_newsdata(category)
+        elif NEWSAPI_KEY:
+            articles = _fetch_newsapi(category)
+        else:
+            raise ValueError("No news API key set — add NEWSDATA_KEY or NEWSAPI_KEY to environment")
+        seen = set()
+        deduped = []
+        for a in articles:
+            key = a["url"] or a["title"]
+            if key and key not in seen:
+                seen.add(key)
+                deduped.append(a)
+        return deduped
 
     return _get_cached(f"news_{category}", fetch)
