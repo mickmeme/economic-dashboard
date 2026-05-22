@@ -6,6 +6,7 @@ import InstrumentModal from './components/InstrumentModal'
 import TimeframeSelector from './components/TimeframeSelector'
 import GlobalIndices from './sections/GlobalIndices'
 import AustralianSectors from './sections/AustralianSectors'
+import USSectors from './sections/USSectors'
 import Crypto from './sections/Crypto'
 import Bonds from './sections/Bonds'
 import Ratios from './sections/Ratios'
@@ -62,6 +63,7 @@ function Dashboard() {
         {activeTab === 'dashboard' ? (
           <>
             <GlobalIndices period={period} onSelect={setSelected} />
+            <USSectors period={period} onSelect={setSelected} />
             <AustralianSectors period={period} onSelect={setSelected} />
             <Crypto period={period} onSelect={setSelected} />
             <Bonds period={period} onSelect={setSelected} />

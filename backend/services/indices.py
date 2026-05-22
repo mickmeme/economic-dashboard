@@ -15,6 +15,16 @@ INSTRUMENTS = [
     {"ticker": "OZR.AX",   "name": "Health",      "section": "au_sectors", "currency": "AUD", "native": "AUD"},
     {"ticker": "VAP.AX",   "name": "Real Estate", "section": "au_sectors", "currency": "AUD", "native": "AUD"},
     {"ticker": "ARMR.AX",  "name": "Defence",     "section": "au_sectors", "currency": "AUD", "native": "AUD"},
+    {"ticker": "EOS.AX",   "name": "Space",       "section": "au_sectors", "currency": "AUD", "native": "AUD"},
+    # US Sector ETFs — USD
+    {"ticker": "XLK",   "name": "Technology",  "section": "us_sectors", "currency": "USD", "native": "USD"},
+    {"ticker": "XLB",   "name": "Materials",   "section": "us_sectors", "currency": "USD", "native": "USD"},
+    {"ticker": "XLE",   "name": "Energy",      "section": "us_sectors", "currency": "USD", "native": "USD"},
+    {"ticker": "XLF",   "name": "Finance",     "section": "us_sectors", "currency": "USD", "native": "USD"},
+    {"ticker": "XLV",   "name": "Health",      "section": "us_sectors", "currency": "USD", "native": "USD"},
+    {"ticker": "XLRE",  "name": "Real Estate", "section": "us_sectors", "currency": "USD", "native": "USD"},
+    {"ticker": "ITA",   "name": "Defence",     "section": "us_sectors", "currency": "USD", "native": "USD"},
+    {"ticker": "UFO",   "name": "Space",       "section": "us_sectors", "currency": "USD", "native": "USD"},
 ]
 
 # Yahoo Finance FX tickers: X/USD rate
