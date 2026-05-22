@@ -19,16 +19,16 @@ _locks_mutex = threading.Lock()
 
 _NEWSDATA_CFG = {
     "global":     {"category": "world"},
-    "gaming":     {"q": "\"Switch 2\" OR \"Nintendo Switch 2\" OR \"Xbox game\" OR \"Xbox Series\" OR \"PC game\" OR \"PC games\" OR \"Steam game\" OR \"Steam release\""},
+    "gaming":     {"q": "\"Switch 2\" OR \"Xbox\" OR \"PC game\" OR \"Steam\""},
     "markets":    {"category": "business"},
-    "3dprinting": {"q": "\"new 3D printer\" OR \"3D printer review\" OR \"3D printer release\" OR \"3D printing technology\" OR \"3D printer discount\" OR \"3D printer deal\" OR \"3D printer sale\" OR \"3D printable model\" OR \"free 3D model\" OR \"printable model\""},
+    "3dprinting": {"q": "\"3D printer\" OR \"3D printing\" OR \"printable model\" OR \"filament\""},
 }
 
 _NEWSAPI_CFG = {
     "global":     {"_ep": "top-headlines", "category": "general"},
-    "gaming":     {"_ep": "everything",    "q": "\"Switch 2\" OR \"Nintendo Switch 2\" OR \"Xbox game\" OR \"Xbox Series\" OR \"PC game\" OR \"PC games\" OR \"Steam game\" OR \"Steam release\"", "sortBy": "publishedAt"},
+    "gaming":     {"_ep": "everything",    "q": "\"Switch 2\" OR \"Xbox\" OR \"PC game\" OR \"Steam\"",                                   "sortBy": "publishedAt"},
     "markets":    {"_ep": "top-headlines", "category": "business"},
-    "3dprinting": {"_ep": "everything",    "q": "\"new 3D printer\" OR \"3D printer review\" OR \"3D printer release\" OR \"3D printing technology\" OR \"3D printer discount\" OR \"3D printer deal\" OR \"3D printer sale\" OR \"3D printable model\" OR \"free 3D model\" OR \"printable model\"", "sortBy": "publishedAt"},
+    "3dprinting": {"_ep": "everything",    "q": "\"3D printer\" OR \"3D printing\" OR \"printable model\" OR \"filament\"", "sortBy": "publishedAt"},
 }
 
 
@@ -59,7 +59,8 @@ def _fetch_newsdata(category: str) -> list[dict]:
     resp = httpx.get("https://newsdata.io/api/1/news", params=params,
                      timeout=httpx.Timeout(connect=5.0, read=20.0, write=5.0, pool=5.0),
                      headers={"User-Agent": "Mozilla/5.0"})
-    resp.raise_for_status()
+    if not resp.is_success:
+        raise ValueError(f"NewsData {resp.status_code}: {resp.text[:300]}")
     return [
         {
             "title":        a.get("title") or "",
@@ -82,7 +83,8 @@ def _fetch_newsapi(category: str) -> list[dict]:
     resp = httpx.get(url, params=params,
                      timeout=httpx.Timeout(connect=5.0, read=20.0, write=5.0, pool=5.0),
                      headers={"User-Agent": "Mozilla/5.0"})
-    resp.raise_for_status()
+    if not resp.is_success:
+        raise ValueError(f"NewsAPI {resp.status_code}: {resp.text[:300]}")
     return [
         {
             "title":        a.get("title") or "",
