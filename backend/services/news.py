@@ -70,7 +70,7 @@ def _fetch_newsdata(category: str) -> list[dict]:
             "source":       a.get("source_name") or a.get("source_id") or "",
         }
         for a in resp.json().get("results", [])
-        if (a.get("title") or "").strip()
+        if (a.get("title") or "").strip() and (a.get("image_url") or "").strip()
     ]
 
 
@@ -94,6 +94,7 @@ def _fetch_newsapi(category: str) -> list[dict]:
         }
         for a in resp.json().get("articles", [])
         if (a.get("title") or "").strip() not in ("", "[Removed]")
+        and (a.get("urlToImage") or "").strip()
     ]
 
 

@@ -25,16 +25,12 @@ function ArticleCard({ article }) {
       rel="noopener noreferrer"
       className="flex-shrink-0 w-52 bg-[#111] border border-[#1C1C1C] rounded overflow-hidden hover:border-[#333] transition-colors duration-150 flex flex-col"
     >
-      {article.image_url ? (
-        <img
-          src={article.image_url}
-          alt=""
-          className="w-full h-32 object-cover bg-[#1A1A1A]"
-          onError={e => { e.currentTarget.style.display = 'none' }}
-        />
-      ) : (
-        <div className="w-full h-32 bg-[#1A1A1A]" />
-      )}
+      <img
+        src={article.image_url}
+        alt=""
+        className="w-full h-32 object-cover bg-[#1A1A1A]"
+        onError={e => { e.currentTarget.style.display = 'none' }}
+      />
       <div className="p-2.5 flex flex-col gap-1 flex-1">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[9px] text-[#555] uppercase tracking-wider truncate">
