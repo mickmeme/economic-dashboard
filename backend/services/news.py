@@ -55,6 +55,33 @@ _GAMING_FEEDS = [
 
 _MEDIA_NS = "http://search.yahoo.com/mrss/"
 
+_OG_IMAGE_RE = re.compile(
+    r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']'
+    r'|<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']',
+    re.IGNORECASE,
+)
+
+
+def _fetch_og_image(url: str) -> str:
+    """Fetch og:image from an article page. Returns '' on any failure."""
+    try:
+        resp = httpx.get(
+            url,
+            follow_redirects=True,
+            timeout=httpx.Timeout(connect=4.0, read=8.0, write=4.0, pool=4.0),
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        if not resp.is_success:
+            return ""
+        m = _OG_IMAGE_RE.search(resp.text[:20_000])
+        if m:
+            img = (m.group(1) or m.group(2) or "").strip()
+            return img if img.startswith("http") else ""
+    except Exception:
+        pass
+    return ""
+
+
 _GAMING_KEYWORDS = {
     "announced", "announce", "announcement", "reveal", "revealed",
     "trailer", "release date", "launches", "launch", "coming soon",
@@ -136,7 +163,7 @@ def _fetch_single_gaming_feed(feed_url: str) -> list[dict]:
             return []
 
         feed_name = (channel.findtext("title") or feed_url.split("/")[2]).strip()
-        articles  = []
+        candidates = []
 
         for item in channel.findall("item"):
             title = (item.findtext("title")   or "").strip()
@@ -148,7 +175,7 @@ def _fetch_single_gaming_feed(feed_url: str) -> list[dict]:
             image  = _parse_rss_image(item)
 
             if title and link:
-                articles.append({
+                candidates.append({
                     "title":        title,
                     "description":  "",
                     "url":          link,
@@ -156,7 +183,16 @@ def _fetch_single_gaming_feed(feed_url: str) -> list[dict]:
                     "published_at": pub,
                     "source":       source,
                 })
-        return articles
+
+        # Fetch og:image in parallel for articles that are missing one
+        missing = [a for a in candidates if not a["image_url"]]
+        if missing:
+            with ThreadPoolExecutor(max_workers=min(len(missing), 6)) as pool:
+                og_images = list(pool.map(lambda a: _fetch_og_image(a["url"]), missing))
+            for article, og in zip(missing, og_images):
+                article["image_url"] = og
+
+        return [a for a in candidates if a["image_url"]]
     except Exception:
         return []
 
