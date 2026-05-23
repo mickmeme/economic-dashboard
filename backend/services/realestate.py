@@ -29,11 +29,10 @@ def _get_domain_token() -> str:
         resp = httpx.post(
             DOMAIN_TOKEN_URL,
             data={
-                "client_id":     DOMAIN_CLIENT_ID,
-                "client_secret": DOMAIN_CLIENT_SECRET,
-                "grant_type":    "client_credentials",
-                "scope":         "api_listings_read",
+                "grant_type": "client_credentials",
             },
+            auth=(DOMAIN_CLIENT_ID, DOMAIN_CLIENT_SECRET),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
             timeout=10,
         )
         if not resp.is_success:
