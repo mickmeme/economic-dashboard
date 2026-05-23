@@ -138,8 +138,7 @@ def _fetch_gaming_rss() -> list[dict]:
     with ThreadPoolExecutor(max_workers=10) as pool:
         enriched = list(pool.map(enrich, articles))
 
-    # Only return articles where we successfully found an image
-    return [a for a in enriched if a["image_url"]]
+    return enriched
 
 
 def _fetch_newsdata(category: str) -> list[dict]:
