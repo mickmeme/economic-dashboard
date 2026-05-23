@@ -32,11 +32,18 @@ _NEWSAPI_CFG = {
     "3dprinting": {"_ep": "everything",    "q": "3D printer OR 3D printing OR 3D printed", "sortBy": "publishedAt"},
 }
 
-_GAMING_RSS_URL = (
-    "https://news.google.com/rss/search"
-    "?q=game+announcement+OR+game+reveal+OR+game+trailer+OR+new+game+announced"
-    "&hl=en-US&gl=US&ceid=US:en"
-)
+# Direct RSS feeds from gaming news sites — images are in the feed XML, no scraping needed
+_GAMING_FEEDS = [
+    "https://feeds.ign.com/ign/all",
+    "https://www.gamespot.com/feeds/mashup/",
+    "https://www.polygon.com/rss/index.xml",
+    "https://www.pcgamer.com/rss/",
+    "https://www.eurogamer.net/?format=rss",
+    "https://kotaku.com/rss",
+    "https://www.gamesradar.com/rss/",
+]
+
+_MEDIA_NS = "http://search.yahoo.com/mrss/"
 
 _GAMING_KEYWORDS = {
     "announced", "announce", "announcement", "reveal", "revealed",
@@ -66,79 +73,93 @@ def _get_cached(key: str, fn):
             raise
 
 
-def _fetch_og_image(url: str) -> str:
-    """Follow redirects to the article page and scrape og:image / twitter:image."""
+def _parse_rss_image(item) -> str:
+    """Extract image URL from an RSS item using multiple strategies."""
+    # media:content
+    mc = item.find(f"{{{_MEDIA_NS}}}content")
+    if mc is not None:
+        url = mc.get("url", "")
+        if url.startswith("http"):
+            return url
+
+    # media:thumbnail
+    mt = item.find(f"{{{_MEDIA_NS}}}thumbnail")
+    if mt is not None:
+        url = mt.get("url", "")
+        if url.startswith("http"):
+            return url
+
+    # enclosure
+    enc = item.find("enclosure")
+    if enc is not None:
+        url  = enc.get("url", "")
+        mime = enc.get("type", "")
+        if url.startswith("http") and "image" in mime:
+            return url
+
+    # first <img> inside <description> HTML
+    desc = item.findtext("description") or ""
+    m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', desc, re.IGNORECASE)
+    if m:
+        url = m.group(1)
+        if url.startswith("http"):
+            return url
+
+    return ""
+
+
+def _fetch_single_gaming_feed(feed_url: str) -> list[dict]:
+    """Fetch one gaming RSS feed and return normalised articles."""
     try:
         resp = httpx.get(
-            url,
+            feed_url,
             follow_redirects=True,
-            timeout=httpx.Timeout(connect=4.0, read=6.0, write=4.0, pool=4.0),
-            headers={"User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/124.0.0.0 Safari/537.36"
-            )},
+            timeout=httpx.Timeout(connect=5.0, read=15.0, write=5.0, pool=5.0),
+            headers={"User-Agent": "Mozilla/5.0"},
         )
         if not resp.is_success:
-            return ""
-        html = resp.text[:40000]  # og:image is always in <head>
-        for pattern in [
-            r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
-            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']',
-            r'<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\']([^"\']+)["\']',
-            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+name=["\']twitter:image["\']',
-        ]:
-            m = re.search(pattern, html, re.IGNORECASE)
-            if m:
-                img = m.group(1).strip()
-                if img.startswith("http"):
-                    return img
-        return ""
+            return []
+
+        root    = ET.fromstring(resp.content)
+        channel = root.find("channel")
+        if channel is None:
+            return []
+
+        feed_name = (channel.findtext("title") or feed_url.split("/")[2]).strip()
+        articles  = []
+
+        for item in channel.findall("item"):
+            title = (item.findtext("title")   or "").strip()
+            link  = (item.findtext("link")    or
+                     item.findtext("guid")    or "").strip()
+            pub   = (item.findtext("pubDate") or "").strip()
+            src_el = item.find("source")
+            source = src_el.text.strip() if src_el is not None and src_el.text else feed_name
+            image  = _parse_rss_image(item)
+
+            if title and link:
+                articles.append({
+                    "title":        title,
+                    "description":  "",
+                    "url":          link,
+                    "image_url":    image,
+                    "published_at": pub,
+                    "source":       source,
+                })
+        return articles
     except Exception:
-        return ""
+        return []
 
 
 def _fetch_gaming_rss() -> list[dict]:
-    """Fetch Google News RSS for gaming announcements and enrich with og:image."""
-    resp = httpx.get(
-        _GAMING_RSS_URL,
-        follow_redirects=True,
-        timeout=httpx.Timeout(connect=5.0, read=15.0, write=5.0, pool=5.0),
-        headers={"User-Agent": "Mozilla/5.0"},
-    )
-    if not resp.is_success:
-        raise ValueError(f"Google News RSS {resp.status_code}: {resp.text[:300]}")
+    """Fetch all gaming RSS feeds in parallel and aggregate results."""
+    with ThreadPoolExecutor(max_workers=len(_GAMING_FEEDS)) as pool:
+        results = list(pool.map(_fetch_single_gaming_feed, _GAMING_FEEDS))
 
-    root = ET.fromstring(resp.content)
-    channel = root.find("channel")
-    items = channel.findall("item") if channel is not None else []
-
-    articles = []
-    for item in items:
-        title  = (item.findtext("title")   or "").strip()
-        link   = (item.findtext("link")    or "").strip()
-        pub    = (item.findtext("pubDate") or "").strip()
-        src_el = item.find("source")
-        source = src_el.text.strip() if src_el is not None and src_el.text else ""
-        if title and link:
-            articles.append({
-                "title":        title,
-                "description":  "",
-                "url":          link,
-                "image_url":    "",
-                "published_at": pub,
-                "source":       source,
-            })
-
-    # Fetch og:image for all articles in parallel
-    def enrich(article):
-        article["image_url"] = _fetch_og_image(article["url"])
-        return article
-
-    with ThreadPoolExecutor(max_workers=10) as pool:
-        enriched = list(pool.map(enrich, articles))
-
-    return enriched
+    all_articles = []
+    for feed_articles in results:
+        all_articles.extend(feed_articles)
+    return all_articles
 
 
 def _fetch_newsdata(category: str) -> list[dict]:
@@ -195,7 +216,7 @@ def get_news(category: str) -> list[dict]:
     def fetch():
         if category == "gaming":
             articles = _fetch_gaming_rss()
-            articles = [a for a in articles if any(kw in (a["title"] + " " + a["description"]).lower() for kw in _GAMING_KEYWORDS)]
+            articles = [a for a in articles if any(kw in a["title"].lower() for kw in _GAMING_KEYWORDS)]
         elif NEWSDATA_KEY:
             articles = _fetch_newsdata(category)
         elif NEWSAPI_KEY:
