@@ -33,7 +33,7 @@ def _get_domain_token() -> str:
             "grant_type":    "client_credentials",
             "client_id":     DOMAIN_CLIENT_ID,
             "client_secret": DOMAIN_CLIENT_SECRET,
-            "scope":         "api_listings_read",
+            "scope":         "api_salesresults_read api_listings_read",
         })
         resp = httpx.post(
             DOMAIN_TOKEN_URL,
@@ -50,37 +50,39 @@ def _get_domain_token() -> str:
 
 
 def _parse_sale(item: dict) -> dict:
-    """Normalise a Domain API sold listing item."""
-    listing = item.get("listing") or item
-    pd  = listing.get("propertyDetails") or {}
-    pr  = listing.get("priceDetails")    or {}
-    ds  = listing.get("dateSold")        or {}
-    media = listing.get("media")         or []
+    """Normalise a Domain API salesResults listing item."""
+    parts = " ".join(filter(None, [
+        item.get("streetNumber", ""),
+        item.get("streetName", ""),
+        item.get("streetType", ""),
+    ])).strip()
+    suburb   = (item.get("suburb") or "").title()
+    state    = item.get("state", "")
+    postcode = item.get("postcode", "")
+    address  = ", ".join(filter(None, [parts, f"{suburb} {state} {postcode}".strip()]))
 
-    price_val = pr.get("price")
-    price_str = pr.get("displayPrice") or ("Price withheld" if not price_val else None)
-
-    date_raw = ds.get("date") or ds.get("matchedDate") or ""
-    date_str = date_raw[:10] if date_raw else ""   # keep YYYY-MM-DD
-
-    image_url = next(
-        (m["url"] for m in media if isinstance(m, dict) and m.get("category") == "Image"),
-        "",
-    )
+    price_val = item.get("price") or item.get("clearancePrice")
+    result_code = item.get("result", "")
 
     return {
-        "address":       pd.get("displayableAddress") or "",
-        "suburb":        (pd.get("suburb") or "").title(),
-        "postcode":      pd.get("postcode") or "",
-        "property_type": (pd.get("propertyType") or "").title(),
-        "bedrooms":      pd.get("bedrooms"),
-        "bathrooms":     pd.get("bathrooms"),
-        "carspaces":     pd.get("carspaces"),
+        "address":       address,
+        "suburb":        suburb,
+        "postcode":      postcode,
+        "property_type": (item.get("propertyType") or "").title(),
+        "bedrooms":      item.get("bedrooms"),
+        "bathrooms":     item.get("bathrooms"),
+        "carspaces":     item.get("carspaces"),
         "price":         price_val,
-        "display_price": price_str or (f"${price_val:,.0f}" if price_val else "Price withheld"),
-        "date_sold":     date_str,
-        "image_url":     image_url,
+        "display_price": f"${price_val:,.0f}" if price_val else (result_code or "Price withheld"),
+        "date_sold":     "",
+        "image_url":     "",
     }
+
+
+_POSTCODE_CITY_MAP = {
+    "3030": "melbourne",
+    "4227": "goldcoast",
+}
 
 
 def get_recent_sales(postcode: str, limit: int = 10) -> list[dict]:
@@ -91,25 +93,27 @@ def get_recent_sales(postcode: str, limit: int = 10) -> list[dict]:
             if time.time() - fetched_at < SALES_CACHE_TTL:
                 return data
 
+    city = _POSTCODE_CITY_MAP.get(postcode)
+    if not city:
+        raise RuntimeError(f"No city mapping for postcode {postcode}")
+
     token = _get_domain_token()
-    resp = httpx.post(
-        f"{DOMAIN_API_BASE}/v1/listings/sold",
-        json={
-            "locations": [{"postCode": postcode}],
-            "pageSize":  limit,
-            "sort":      {"sortKey": "dateSold", "direction": "Descending"},
-        },
+    resp = httpx.get(
+        f"{DOMAIN_API_BASE}/v1/salesResults/{city}/listings",
         headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         timeout=15,
     )
     if not resp.is_success:
         raise RuntimeError(f"Domain API {resp.status_code}: {resp.text[:300]}")
 
-    items = resp.json()
-    if isinstance(items, dict):
-        items = items.get("listings") or items.get("results") or []
+    raw = resp.json()
+    if isinstance(raw, dict):
+        items = raw.get("listings") or raw.get("results") or []
+    else:
+        items = raw if isinstance(raw, list) else []
 
-    results = [_parse_sale(i) for i in items if isinstance(i, dict)]
+    filtered = [i for i in items if isinstance(i, dict) and str(i.get("postcode", "")).strip() == postcode]
+    results = [_parse_sale(i) for i in filtered[:limit]]
 
     with _sales_lock:
         _sales_cache[key] = (time.time(), results)
