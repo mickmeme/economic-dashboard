@@ -36,13 +36,13 @@ function Dashboard() {
       <div className="h-[3px] bg-brand shrink-0" />
 
       <div className="bg-[#0F0F0F] border-b border-[#1C1C1C] shrink-0">
-        <div className="w-full px-4 sm:px-6 py-4 flex justify-between items-center gap-4">
+        <div className="w-full max-w-[90rem] mx-auto px-4 sm:px-6 py-4 flex justify-between items-center gap-4">
           <Header lastUpdated={lastUpdated} />
           {activeTab === 'dashboard' && (
             <TimeframeSelector period={period} onChange={setPeriod} />
           )}
         </div>
-        <div className="w-full px-4 sm:px-6 flex gap-0 border-t border-[#1C1C1C]">
+        <div className="w-full max-w-[90rem] mx-auto px-4 sm:px-6 flex gap-0 border-t border-[#1C1C1C]">
           {TABS.map(tab => (
             <button
               key={tab.key}
@@ -59,7 +59,7 @@ function Dashboard() {
         </div>
       </div>
 
-      <main className="flex-1 w-full px-4 sm:px-6 py-6">
+      <main className="flex-1 w-full max-w-[90rem] mx-auto px-4 sm:px-6 py-6">
         {activeTab === 'dashboard' ? (
           <>
             <GlobalIndices period={period} onSelect={setSelected} />

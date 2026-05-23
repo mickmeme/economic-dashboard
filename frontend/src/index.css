@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  /* Scale everything proportionally with viewport width.
+     16px is baseline at 1280px (1.25vw = 16px). Minimum 13px for narrow windows. */
+  font-size: clamp(13px, 1.25vw, 9999px);
+}
+
 @layer utilities {
   .scrollbar-none {
     scrollbar-width: none;
