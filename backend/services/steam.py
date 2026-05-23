@@ -1,15 +1,21 @@
 import json
+import re
 import time
 import threading
 import urllib.request
 import urllib.error
 
-# featuredcategories returns Steam's curated front-page lists including "New & Trending"
-STEAM_FEATURED_URL = "https://store.steampowered.com/api/featuredcategories/"
+# filter=trendingandnewest is the exact filter Steam's store uses for the "New & Trending" tab
+STEAM_SEARCH_URL = (
+    "https://store.steampowered.com/search/results/"
+    "?filter=trendingandnewest&category1=998&json=1&count=20"
+)
 CACHE_TTL = 1800  # 30 min
 
 _cache: dict = {}
 _lock = threading.Lock()
+
+_APP_ID_RE = re.compile(r'/apps/(\d+)/')
 
 
 def get_new_releases(limit: int = 20) -> list[dict]:
@@ -20,7 +26,7 @@ def get_new_releases(limit: int = 20) -> list[dict]:
                 return data
 
     req = urllib.request.Request(
-        STEAM_FEATURED_URL,
+        STEAM_SEARCH_URL,
         headers={
             "User-Agent":      "Mozilla/5.0 (compatible; economic-dashboard/1.0)",
             "Accept":          "application/json",
@@ -30,41 +36,27 @@ def get_new_releases(limit: int = 20) -> list[dict]:
     with urllib.request.urlopen(req, timeout=15) as resp:
         payload = json.loads(resp.read().decode("utf-8"))
 
-    # Find the "New & Trending" category — iterate all keys and match by name,
-    # falling back to the first numeric key if no name match is found.
-    items = []
-    fallback_items = []
-    for key, val in payload.items():
-        if not isinstance(val, dict):
-            continue
-        cat_name = val.get("name", "")
-        cat_items = val.get("items", [])
-        if "trend" in cat_name.lower() or ("new" in cat_name.lower() and "trend" in cat_name.lower()):
-            items = cat_items
-            break
-        if key.isdigit() and not fallback_items and cat_items:
-            fallback_items = cat_items
-    if not items:
-        items = fallback_items
+    items = payload.get("items", [])
 
     results = []
     for item in items:
         if not isinstance(item, dict):
             continue
-        app_id = item.get("id")
-        name   = (item.get("name") or "").strip()
-        if not app_id or not name:
+        name = (item.get("name") or "").strip()
+        logo = item.get("logo") or ""
+        if not name or not logo:
             continue
 
-        image_url = (
-            item.get("header_image")
-            or f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{app_id}/header.jpg"
-        )
+        # App ID is embedded in the logo URL: /apps/12345/
+        m = _APP_ID_RE.search(logo)
+        if not m:
+            continue
+        app_id = int(m.group(1))
 
         results.append({
             "app_id":    app_id,
             "name":      name,
-            "image_url": image_url,
+            "image_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{app_id}/header.jpg",
             "store_url": f"https://store.steampowered.com/app/{app_id}/",
         })
         if len(results) >= limit:
