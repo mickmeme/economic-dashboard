@@ -11,7 +11,7 @@ export default function Footer() {
             <div className="w-[2px] h-3 bg-[#FFF97F]/70 rounded-sm" />
           </div>
           <span className="text-[10px] font-bold text-[#444] uppercase tracking-[0.2em]">
-            Economic Dashboard
+            Daily Dashboard
           </span>
         </div>
 

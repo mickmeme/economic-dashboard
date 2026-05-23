@@ -16,7 +16,7 @@ export default function Header({ lastUpdated }) {
 
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight uppercase leading-none">
-          Economic Dashboard
+          Daily Dashboard
         </h1>
         <div className="flex items-center gap-2 mt-1.5">
           <span className="text-[10px] text-[#555] tracking-[0.2em] uppercase">

@@ -9,6 +9,16 @@ NEWSAPI_KEY  = os.getenv("NEWSAPI_KEY", "")
 
 VALID_CATEGORIES = {"global", "gaming", "markets", "3dprinting"}
 
+_GAMING_KEYWORDS = {
+    "announced", "announce", "announcement", "reveal", "revealed",
+    "trailer", "release date", "launches", "launch", "coming soon",
+    "teaser", "confirmed", "new game", "gameplay reveal", "debut",
+}
+
+def _is_gaming_announcement(article: dict) -> bool:
+    text = (article.get("title") or "" + " " + (article.get("description") or "")).lower()
+    return any(kw in text for kw in _GAMING_KEYWORDS)
+
 CACHE_TTL   = 1800  # 30 min — balances freshness vs free-tier quota
 FAILURE_TTL = 120   # 2 min before retrying a failed category
 
@@ -111,6 +121,8 @@ def get_news(category: str) -> list[dict]:
             articles = _fetch_newsapi(category)
         else:
             raise ValueError("No news API key set — add NEWSDATA_KEY or NEWSAPI_KEY to environment")
+        if category == "gaming":
+            articles = [a for a in articles if _is_gaming_announcement(a)]
         seen = set()
         deduped = []
         for a in articles:
