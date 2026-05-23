@@ -106,6 +106,15 @@ export function useRealEstateSuburbs() {
   })
 }
 
+export function useRecentSales(postcode) {
+  return useQuery({
+    queryKey: ['realestate', 'sales', postcode],
+    queryFn: () => fetchJson(`${API_BASE}/api/realestate/sales/${postcode}`),
+    staleTime: 60 * 60 * 1000,
+    retry: 1,
+  })
+}
+
 export function useNews(category) {
   return useQuery({
     queryKey: ['news', category],

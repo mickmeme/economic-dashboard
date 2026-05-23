@@ -7,7 +7,7 @@ from services.indices import get_indices, get_index_history, INSTRUMENTS
 from services.crypto import get_crypto, get_crypto_history, COINS
 from services.ratios import get_buffett_ratio, get_btc_gold_ratio
 from services.yields import get_yield_spread
-from services.realestate import get_state_overview, get_suburb_overview
+from services.realestate import get_state_overview, get_suburb_overview, get_recent_sales
 from services.resources import get_resources_list, get_resource_history, VALID_KEYS as RESOURCE_KEYS
 from services.bonds import get_bonds, get_bond_history, BONDS
 from services.news import get_news, VALID_CATEGORIES as NEWS_CATEGORIES
@@ -121,6 +121,18 @@ def realestate_states():
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Real estate data unavailable: {exc}")
+
+
+@app.get("/api/realestate/sales/{postcode}")
+def realestate_sales(postcode: str):
+    if not postcode.isdigit() or len(postcode) != 4:
+        raise HTTPException(status_code=400, detail="postcode must be a 4-digit number")
+    try:
+        return get_recent_sales(postcode)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Sales data unavailable: {exc}")
 
 
 @app.get("/api/realestate/suburbs")

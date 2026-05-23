@@ -2,6 +2,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { useRealEstateStates } from '../hooks/useMarketData'
+import RecentSales from './RecentSales'
 
 const STATE_COLORS = {
   AUS: '#FFF97F',
@@ -96,6 +97,8 @@ export default function RealEstate() {
 
   return (
     <div className="space-y-8">
+      <RecentSales />
+
       <div>
         <h2 className="text-lg font-semibold text-white mb-1">Australian Property Market</h2>
         <p className="text-[#555] text-sm">
