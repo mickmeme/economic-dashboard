@@ -26,17 +26,23 @@ def _get_domain_token() -> str:
     with _token_lock:
         if "tok" in _token_store and time.time() < _token_store["expires"] - 60:
             return _token_store["tok"]
+        if not DOMAIN_CLIENT_ID or not DOMAIN_CLIENT_SECRET:
+            raise RuntimeError("Domain API credentials not set — add DOMAIN_CLIENT_ID and DOMAIN_CLIENT_SECRET to environment")
+        import urllib.parse as _up
+        body = _up.urlencode({
+            "grant_type":    "client_credentials",
+            "client_id":     DOMAIN_CLIENT_ID,
+            "client_secret": DOMAIN_CLIENT_SECRET,
+            "scope":         "api_listings_read",
+        })
         resp = httpx.post(
             DOMAIN_TOKEN_URL,
-            data={
-                "grant_type": "client_credentials",
-            },
-            auth=(DOMAIN_CLIENT_ID, DOMAIN_CLIENT_SECRET),
+            content=body.encode(),
             headers={"Content-Type": "application/x-www-form-urlencoded"},
             timeout=10,
         )
         if not resp.is_success:
-            raise RuntimeError(f"Domain auth failed {resp.status_code}: {resp.text[:200]}")
+            raise RuntimeError(f"Domain auth failed {resp.status_code}: {resp.text[:500]}")
         d = resp.json()
         _token_store["tok"]     = d["access_token"]
         _token_store["expires"] = time.time() + d.get("expires_in", 3600)
