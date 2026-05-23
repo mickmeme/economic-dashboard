@@ -1,5 +1,4 @@
 import json
-import re
 import time
 import threading
 import urllib.request
@@ -53,13 +52,10 @@ def get_new_releases(limit: int = 20) -> list[dict]:
             continue
         app_id = int(m.group(1))
 
-        # Swap the small capsule filename for the full header (460×215)
-        header = re.sub(r'capsule_sm_120\.jpg$', 'header.jpg', logo)
-
         results.append({
             "app_id":    app_id,
             "name":      name,
-            "image_url": header,
+            "image_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{app_id}/header.jpg",
             "store_url": f"https://store.steampowered.com/app/{app_id}/",
         })
         if len(results) >= limit:
