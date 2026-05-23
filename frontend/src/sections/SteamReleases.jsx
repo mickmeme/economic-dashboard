@@ -67,43 +67,23 @@ function GameCard({ game }) {
       rel="noopener noreferrer"
       className="flex-shrink-0 w-44 bg-[#111] border border-[#1C1C1C] rounded overflow-hidden hover:border-[#333] transition-colors duration-150 flex flex-col select-none"
     >
-      <div className="relative">
-        <img
-          src={game.image_url}
-          alt=""
-          draggable={false}
-          className="w-full h-24 object-cover bg-[#1A1A1A]"
-          onError={e => {
-            if (e.currentTarget.src !== game.header_image) {
-              e.currentTarget.src = game.header_image
-            } else {
-              e.currentTarget.style.display = 'none'
-            }
-          }}
-        />
-        {game.discount > 0 && (
-          <span className="absolute top-1.5 right-1.5 bg-[#4c6b22] text-[#a4d007] text-[9px] font-bold px-1.5 py-0.5 rounded">
-            -{game.discount}%
-          </span>
-        )}
-      </div>
+      <img
+        src={game.image_url}
+        alt=""
+        draggable={false}
+        className="w-full h-24 object-cover bg-[#1A1A1A]"
+        onError={e => {
+          if (e.currentTarget.src !== game.header_image) {
+            e.currentTarget.src = game.header_image
+          } else {
+            e.currentTarget.style.display = 'none'
+          }
+        }}
+      />
       <div className="p-2 flex flex-col gap-1 flex-1">
-        <p className="text-xs text-[#CCC] font-medium leading-snug line-clamp-2">
+        <p className="text-xs text-[#CCC] font-medium leading-snug line-clamp-3">
           {game.name}
         </p>
-        <div className="mt-auto pt-1 flex items-baseline justify-between gap-1.5">
-          <div className="flex items-baseline gap-1.5">
-            {game.original_price && (
-              <span className="text-[9px] text-[#555] line-through">{game.original_price}</span>
-            )}
-            <span className={`text-[11px] font-bold ${game.price === 'Free' ? 'text-[#4fc3f7]' : 'text-[#a4d007]'}`}>
-              {game.price}
-            </span>
-          </div>
-          {game.release && (
-            <span className="text-[9px] text-[#444] shrink-0">{game.release}</span>
-          )}
-        </div>
       </div>
     </a>
   )

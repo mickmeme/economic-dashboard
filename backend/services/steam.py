@@ -1,9 +1,9 @@
 import json
+import re
 import time
 import threading
 import urllib.request
 import urllib.error
-import urllib.parse
 
 # Search for games sorted by release date — category1=998 filters to games only
 STEAM_SEARCH_URL = (
@@ -15,13 +15,7 @@ CACHE_TTL = 1800  # 30 min
 _cache: dict = {}
 _lock = threading.Lock()
 
-
-def _capsule_url(app_id: int) -> str:
-    return f"https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/capsule_616x353.jpg"
-
-
-def _header_url(app_id: int) -> str:
-    return f"https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/header.jpg"
+_APP_ID_RE = re.compile(r'/apps/(\d+)/')
 
 
 def get_new_releases(limit: int = 20) -> list[dict]:
@@ -48,40 +42,24 @@ def get_new_releases(limit: int = 20) -> list[dict]:
     for item in items:
         if not isinstance(item, dict):
             continue
-        app_id = item.get("id")
-        if not app_id:
+        name = (item.get("name") or "").strip()
+        logo = item.get("logo") or ""
+        if not name or not logo:
             continue
 
-        price_info   = item.get("price") or {}
-        final        = price_info.get("final", 0)
-        initial      = price_info.get("initial", 0)
-        discount     = price_info.get("discount_percent", 0)
-        final_fmt    = price_info.get("final_formatted", "")
-        initial_fmt  = price_info.get("initial_formatted", "")
-
-        if final == 0 and initial == 0:
-            price_str = "Free"
-        elif final_fmt:
-            price_str = final_fmt
-        else:
-            price_str = f"${final / 100:.2f}"
-
-        orig_str = initial_fmt if (discount > 0 and initial_fmt) else None
-
-        # tiny_image from search results; also provide constructed fallbacks
-        tiny = item.get("tiny_image") or item.get("image") or ""
+        # App ID is embedded in the logo URL: /apps/12345/
+        m = _APP_ID_RE.search(logo)
+        if not m:
+            continue
+        app_id = int(m.group(1))
 
         results.append({
             "app_id":         app_id,
-            "name":           item.get("name", ""),
-            "image_url":      _capsule_url(app_id),
-            "header_image":   _header_url(app_id),
-            "tiny_image":     tiny,
-            "price":          price_str,
-            "original_price": orig_str,
-            "discount":       discount,
+            "name":           name,
+            "image_url":      f"https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/capsule_616x353.jpg",
+            "header_image":   f"https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/header.jpg",
+            "logo":           logo,
             "store_url":      f"https://store.steampowered.com/app/{app_id}/",
-            "release":        item.get("release_string", ""),
         })
         if len(results) >= limit:
             break
