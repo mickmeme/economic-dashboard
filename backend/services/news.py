@@ -126,7 +126,8 @@ def get_news(category: str) -> list[dict]:
         seen = set()
         deduped = []
         for a in articles:
-            key = a["url"] or a["title"]
+            raw = a["url"] or a["title"]
+            key = raw.strip().lower().rstrip("/").split("?")[0]
             if key and key not in seen:
                 seen.add(key)
                 deduped.append(a)
