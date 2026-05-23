@@ -62,7 +62,7 @@ function useDragScroll() {
   return { ref, onMouseDown, onClickCapture }
 }
 
-function ArticleCard({ article }) {
+function ArticleCard({ article, label }) {
   return (
     <a
       href={article.url}
@@ -80,7 +80,7 @@ function ArticleCard({ article }) {
         />
       ) : (
         <div className="w-full h-32 bg-gradient-to-br from-[#0D0D1A] to-[#0A0A0A] flex items-center justify-center border-b border-[#1C1C1C]">
-          <span className="text-[9px] font-bold text-[#2A2A3A] uppercase tracking-[0.4em]">Gaming News</span>
+          <span className="text-[9px] font-bold text-[#2A2A3A] uppercase tracking-[0.4em]">{label}</span>
         </div>
       )}
       <div className="p-2.5 flex flex-col gap-1 flex-1">
@@ -140,7 +140,7 @@ function NewsSection({ sectionKey, label }) {
             ? <p className="text-red-400 text-sm py-4">Failed to load: {error.message}</p>
             : (data ?? []).length === 0
               ? <p className="text-[#444] text-sm py-4">No articles available.</p>
-              : (data ?? []).map((a, i) => <ArticleCard key={i} article={a} />)
+              : (data ?? []).map((a, i) => <ArticleCard key={i} article={a} label={label} />)
         }
       </div>
     </section>

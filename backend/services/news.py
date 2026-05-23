@@ -32,6 +32,16 @@ _NEWSAPI_CFG = {
     "3dprinting": {"_ep": "everything",    "q": "3D printer OR 3D printing OR 3D printed", "sortBy": "publishedAt"},
 }
 
+# Direct RSS feeds from dedicated 3D printing news sites
+_3DPRINTING_FEEDS = [
+    "https://3dprint.com/feed/",
+    "https://all3dp.com/feed/",
+    "https://3dprintingindustry.com/feed/",
+    "https://www.fabbaloo.com/feed",
+    "https://hackaday.com/tag/3d-printing/feed/",
+    "https://www.3dnatives.com/en/feed/",
+]
+
 # Direct RSS feeds from gaming news sites — images are in the feed XML, no scraping needed
 _GAMING_FEEDS = [
     "https://feeds.ign.com/ign/all",
@@ -155,7 +165,16 @@ def _fetch_gaming_rss() -> list[dict]:
     """Fetch all gaming RSS feeds in parallel and aggregate results."""
     with ThreadPoolExecutor(max_workers=len(_GAMING_FEEDS)) as pool:
         results = list(pool.map(_fetch_single_gaming_feed, _GAMING_FEEDS))
+    all_articles = []
+    for feed_articles in results:
+        all_articles.extend(feed_articles)
+    return all_articles
 
+
+def _fetch_3dprinting_rss() -> list[dict]:
+    """Fetch all 3D printing RSS feeds in parallel and aggregate results."""
+    with ThreadPoolExecutor(max_workers=len(_3DPRINTING_FEEDS)) as pool:
+        results = list(pool.map(_fetch_single_gaming_feed, _3DPRINTING_FEEDS))
     all_articles = []
     for feed_articles in results:
         all_articles.extend(feed_articles)
@@ -217,6 +236,8 @@ def get_news(category: str) -> list[dict]:
         if category == "gaming":
             articles = _fetch_gaming_rss()
             articles = [a for a in articles if any(kw in a["title"].lower() for kw in _GAMING_KEYWORDS)]
+        elif category == "3dprinting":
+            articles = _fetch_3dprinting_rss()
         elif NEWSDATA_KEY:
             articles = _fetch_newsdata(category)
         elif NEWSAPI_KEY:
