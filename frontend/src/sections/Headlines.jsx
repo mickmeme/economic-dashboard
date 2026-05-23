@@ -92,7 +92,7 @@ function ArticleCard({ article, label }) {
             {timeAgo(article.published_at)}
           </span>
         </div>
-        <p className="text-[11px] text-[#CCC] leading-[1.4] line-clamp-4">
+        <p className="text-xs text-[#CCC] leading-[1.4] line-clamp-4">
           {article.title}
         </p>
       </div>
