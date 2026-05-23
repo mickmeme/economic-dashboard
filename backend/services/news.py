@@ -1,6 +1,9 @@
 import os
+import re
 import time
 import threading
+import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 
@@ -9,17 +12,7 @@ NEWSAPI_KEY  = os.getenv("NEWSAPI_KEY", "")
 
 VALID_CATEGORIES = {"global", "gaming", "markets", "3dprinting"}
 
-_GAMING_KEYWORDS = {
-    "announced", "announce", "announcement", "reveal", "revealed",
-    "trailer", "release date", "launches", "launch", "coming soon",
-    "teaser", "confirmed", "new game", "gameplay reveal", "debut",
-}
-
-def _is_gaming_announcement(article: dict) -> bool:
-    text = (article.get("title") or "" + " " + (article.get("description") or "")).lower()
-    return any(kw in text for kw in _GAMING_KEYWORDS)
-
-CACHE_TTL   = 1800  # 30 min — balances freshness vs free-tier quota
+CACHE_TTL   = 1800  # 30 min
 FAILURE_TTL = 120   # 2 min before retrying a failed category
 
 _FAILURE = object()
@@ -29,16 +22,26 @@ _locks_mutex = threading.Lock()
 
 _NEWSDATA_CFG = {
     "global":     {"category": "world"},
-    "gaming":     {"q": "game announcement OR game reveal OR game trailer"},
     "markets":    {"category": "business"},
     "3dprinting": {"q": "3D printer OR 3D printing OR 3D printed"},
 }
 
 _NEWSAPI_CFG = {
     "global":     {"_ep": "top-headlines", "category": "general"},
-    "gaming":     {"_ep": "everything",    "q": "game announcement OR game reveal OR game trailer", "sortBy": "publishedAt"},
     "markets":    {"_ep": "top-headlines", "category": "business"},
-    "3dprinting": {"_ep": "everything",    "q": "3D printer OR 3D printing OR 3D printed",          "sortBy": "publishedAt"},
+    "3dprinting": {"_ep": "everything",    "q": "3D printer OR 3D printing OR 3D printed", "sortBy": "publishedAt"},
+}
+
+_GAMING_RSS_URL = (
+    "https://news.google.com/rss/search"
+    "?q=game+announcement+OR+game+reveal+OR+game+trailer+OR+new+game+announced"
+    "&hl=en-US&gl=US&ceid=US:en"
+)
+
+_GAMING_KEYWORDS = {
+    "announced", "announce", "announcement", "reveal", "revealed",
+    "trailer", "release date", "launches", "launch", "coming soon",
+    "teaser", "confirmed", "new game", "gameplay reveal", "debut",
 }
 
 
@@ -61,6 +64,82 @@ def _get_cached(key: str, fn):
         except Exception:
             _cache[key] = (time.time(), _FAILURE)
             raise
+
+
+def _fetch_og_image(url: str) -> str:
+    """Follow redirects to the article page and scrape og:image / twitter:image."""
+    try:
+        resp = httpx.get(
+            url,
+            follow_redirects=True,
+            timeout=httpx.Timeout(connect=4.0, read=6.0, write=4.0, pool=4.0),
+            headers={"User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            )},
+        )
+        if not resp.is_success:
+            return ""
+        html = resp.text[:40000]  # og:image is always in <head>
+        for pattern in [
+            r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
+            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']',
+            r'<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\']([^"\']+)["\']',
+            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+name=["\']twitter:image["\']',
+        ]:
+            m = re.search(pattern, html, re.IGNORECASE)
+            if m:
+                img = m.group(1).strip()
+                if img.startswith("http"):
+                    return img
+        return ""
+    except Exception:
+        return ""
+
+
+def _fetch_gaming_rss() -> list[dict]:
+    """Fetch Google News RSS for gaming announcements and enrich with og:image."""
+    resp = httpx.get(
+        _GAMING_RSS_URL,
+        follow_redirects=True,
+        timeout=httpx.Timeout(connect=5.0, read=15.0, write=5.0, pool=5.0),
+        headers={"User-Agent": "Mozilla/5.0"},
+    )
+    if not resp.is_success:
+        raise ValueError(f"Google News RSS {resp.status_code}: {resp.text[:300]}")
+
+    root = ET.fromstring(resp.content)
+    channel = root.find("channel")
+    items = channel.findall("item") if channel is not None else []
+
+    articles = []
+    for item in items:
+        title  = (item.findtext("title")   or "").strip()
+        link   = (item.findtext("link")    or "").strip()
+        pub    = (item.findtext("pubDate") or "").strip()
+        src_el = item.find("source")
+        source = src_el.text.strip() if src_el is not None and src_el.text else ""
+        if title and link:
+            articles.append({
+                "title":        title,
+                "description":  "",
+                "url":          link,
+                "image_url":    "",
+                "published_at": pub,
+                "source":       source,
+            })
+
+    # Fetch og:image for all articles in parallel
+    def enrich(article):
+        article["image_url"] = _fetch_og_image(article["url"])
+        return article
+
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        enriched = list(pool.map(enrich, articles))
+
+    # Only return articles where we successfully found an image
+    return [a for a in enriched if a["image_url"]]
 
 
 def _fetch_newsdata(category: str) -> list[dict]:
@@ -115,14 +194,16 @@ def get_news(category: str) -> list[dict]:
         raise ValueError(f"Unknown news category: {category}")
 
     def fetch():
-        if NEWSDATA_KEY:
+        if category == "gaming":
+            articles = _fetch_gaming_rss()
+            articles = [a for a in articles if any(kw in (a["title"] + " " + a["description"]).lower() for kw in _GAMING_KEYWORDS)]
+        elif NEWSDATA_KEY:
             articles = _fetch_newsdata(category)
         elif NEWSAPI_KEY:
             articles = _fetch_newsapi(category)
         else:
             raise ValueError("No news API key set — add NEWSDATA_KEY or NEWSAPI_KEY to environment")
-        if category == "gaming":
-            articles = [a for a in articles if _is_gaming_announcement(a)]
+
         seen = set()
         deduped = []
         for a in articles:
