@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useNews } from '../hooks/useMarketData'
 import SteamReleases from './SteamReleases'
 
@@ -67,6 +67,9 @@ function useDragScroll() {
 }
 
 function ArticleCard({ article, label }) {
+  const [imgFailed, setImgFailed] = useState(false)
+  const showPlaceholder = !article.image_url || imgFailed
+
   return (
     <a
       href={article.url}
@@ -74,18 +77,18 @@ function ArticleCard({ article, label }) {
       rel="noopener noreferrer"
       className="flex-shrink-0 w-52 bg-[#111] border border-[#1C1C1C] rounded overflow-hidden hover:border-[#333] transition-colors duration-150 flex flex-col select-none"
     >
-      {article.image_url ? (
+      {showPlaceholder ? (
+        <div className="w-full h-32 bg-gradient-to-br from-[#0D0D1A] to-[#0A0A0A] flex items-center justify-center border-b border-[#1C1C1C]">
+          <span className="text-[9px] font-bold text-[#2A2A3A] uppercase tracking-[0.4em]">{label}</span>
+        </div>
+      ) : (
         <img
           src={article.image_url}
           alt=""
           draggable={false}
           className="w-full h-32 object-cover bg-[#1A1A1A]"
-          onError={e => { e.currentTarget.style.display = 'none' }}
+          onError={() => setImgFailed(true)}
         />
-      ) : (
-        <div className="w-full h-32 bg-gradient-to-br from-[#0D0D1A] to-[#0A0A0A] flex items-center justify-center border-b border-[#1C1C1C]">
-          <span className="text-[9px] font-bold text-[#2A2A3A] uppercase tracking-[0.4em]">{label}</span>
-        </div>
       )}
       <div className="p-2.5 flex flex-col gap-1 flex-1">
         <div className="flex items-center justify-between gap-2">
