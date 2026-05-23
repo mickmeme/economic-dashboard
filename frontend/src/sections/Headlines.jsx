@@ -1,11 +1,15 @@
 import { useRef, useCallback, useEffect } from 'react'
 import { useNews } from '../hooks/useMarketData'
+import SteamReleases from './SteamReleases'
 
-const SECTIONS = [
-  { key: 'global',      label: 'Global News'   },
-  { key: 'markets',     label: 'Markets'        },
-  { key: 'gaming',      label: 'Gaming'         },
-  { key: '3dprinting',  label: '3D Printing'    },
+const SECTIONS_BEFORE_GAMING = [
+  { key: 'global',  label: 'Global News' },
+  { key: 'markets', label: 'Markets'     },
+]
+
+const SECTIONS_AFTER_STEAM = [
+  { key: 'gaming',     label: 'Gaming'      },
+  { key: '3dprinting', label: '3D Printing' },
 ]
 
 function timeAgo(dateStr) {
@@ -150,7 +154,11 @@ function NewsSection({ sectionKey, label }) {
 export default function Headlines() {
   return (
     <div>
-      {SECTIONS.map(s => (
+      {SECTIONS_BEFORE_GAMING.map(s => (
+        <NewsSection key={s.key} sectionKey={s.key} label={s.label} />
+      ))}
+      <SteamReleases />
+      {SECTIONS_AFTER_STEAM.map(s => (
         <NewsSection key={s.key} sectionKey={s.key} label={s.label} />
       ))}
     </div>

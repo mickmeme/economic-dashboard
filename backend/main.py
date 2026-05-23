@@ -11,6 +11,7 @@ from services.realestate import get_state_overview, get_suburb_overview, get_rec
 from services.resources import get_resources_list, get_resource_history, VALID_KEYS as RESOURCE_KEYS
 from services.bonds import get_bonds, get_bond_history, BONDS
 from services.news import get_news, VALID_CATEGORIES as NEWS_CATEGORIES
+from services.steam import get_new_releases as steam_get_new_releases
 
 app = FastAPI(title="Economic Dashboard API")
 
@@ -143,6 +144,14 @@ def realestate_suburbs():
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Real estate data unavailable: {exc}")
+
+
+@app.get("/api/steam/newreleases")
+def steam_new_releases():
+    try:
+        return steam_get_new_releases()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Steam data unavailable: {exc}")
 
 
 @app.get("/api/news/{category}")
