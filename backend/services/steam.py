@@ -5,10 +5,10 @@ import threading
 import urllib.request
 import urllib.error
 
-# Search for games sorted by release date — category1=998 filters to games only
+# New & Trending list — mirrors the Steam store front page tab; category1=998 = games only
 STEAM_SEARCH_URL = (
     "https://store.steampowered.com/search/results/"
-    "?sort_by=Released_DESC&category1=998&json=1&count=20"
+    "?filter=trending&category1=998&json=1&count=20"
 )
 CACHE_TTL = 1800  # 30 min
 
