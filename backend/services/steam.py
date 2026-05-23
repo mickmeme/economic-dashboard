@@ -53,12 +53,14 @@ def get_new_releases(limit: int = 20) -> list[dict]:
             continue
         app_id = int(m.group(1))
 
+        # Swap the small capsule filename for the full header (460×215)
+        header = re.sub(r'capsule_sm_120\.jpg$', 'header.jpg', logo)
+
         results.append({
-            "app_id":       app_id,
-            "name":         name,
-            "image_url":    logo,  # direct API URL — always valid
-            "header_image": f"https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/header.jpg",
-            "store_url":    f"https://store.steampowered.com/app/{app_id}/",
+            "app_id":    app_id,
+            "name":      name,
+            "image_url": header,
+            "store_url": f"https://store.steampowered.com/app/{app_id}/",
         })
         if len(results) >= limit:
             break

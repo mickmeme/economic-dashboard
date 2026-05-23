@@ -71,14 +71,8 @@ function GameCard({ game }) {
         src={game.image_url}
         alt=""
         draggable={false}
-        className="w-full h-24 object-cover bg-[#1A1A1A]"
-        onError={e => {
-          if (e.currentTarget.src !== game.header_image) {
-            e.currentTarget.src = game.header_image
-          } else {
-            e.currentTarget.style.display = 'none'
-          }
-        }}
+        className="w-full aspect-[460/215] object-cover bg-[#1A1A1A]"
+        onError={e => { e.currentTarget.style.display = 'none' }}
       />
       <div className="p-2 flex flex-col gap-1 flex-1">
         <p className="text-xs text-[#CCC] font-medium leading-snug line-clamp-3">
