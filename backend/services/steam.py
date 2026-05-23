@@ -54,12 +54,11 @@ def get_new_releases(limit: int = 20) -> list[dict]:
         app_id = int(m.group(1))
 
         results.append({
-            "app_id":         app_id,
-            "name":           name,
-            "image_url":      f"https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/capsule_616x353.jpg",
-            "header_image":   f"https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/header.jpg",
-            "logo":           logo,
-            "store_url":      f"https://store.steampowered.com/app/{app_id}/",
+            "app_id":       app_id,
+            "name":         name,
+            "image_url":    logo,  # direct API URL — always valid
+            "header_image": f"https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/header.jpg",
+            "store_url":    f"https://store.steampowered.com/app/{app_id}/",
         })
         if len(results) >= limit:
             break
