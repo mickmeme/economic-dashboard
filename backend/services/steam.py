@@ -1,21 +1,16 @@
 import json
-import re
 import time
 import threading
 import urllib.request
 import urllib.error
 
-# filter=trendingandnewest is the exact filter Steam's store uses for the "New & Trending" tab
-STEAM_SEARCH_URL = (
-    "https://store.steampowered.com/search/results/"
-    "?filter=trendingandnewest&category1=998&json=1&count=20"
-)
+# featuredcategories exposes Steam's curated store lists.
+# The "new_releases" key is the New Releases section shown on the Steam front page.
+STEAM_FEATURED_URL = "https://store.steampowered.com/api/featuredcategories/"
 CACHE_TTL = 1800  # 30 min
 
 _cache: dict = {}
 _lock = threading.Lock()
-
-_APP_ID_RE = re.compile(r'/apps/(\d+)/')
 
 
 def get_new_releases(limit: int = 20) -> list[dict]:
@@ -26,7 +21,7 @@ def get_new_releases(limit: int = 20) -> list[dict]:
                 return data
 
     req = urllib.request.Request(
-        STEAM_SEARCH_URL,
+        STEAM_FEATURED_URL,
         headers={
             "User-Agent":      "Mozilla/5.0 (compatible; economic-dashboard/1.0)",
             "Accept":          "application/json",
@@ -36,27 +31,26 @@ def get_new_releases(limit: int = 20) -> list[dict]:
     with urllib.request.urlopen(req, timeout=15) as resp:
         payload = json.loads(resp.read().decode("utf-8"))
 
-    items = payload.get("items", [])
+    items = payload.get("new_releases", {}).get("items", [])
 
     results = []
     for item in items:
         if not isinstance(item, dict):
             continue
-        name = (item.get("name") or "").strip()
-        logo = item.get("logo") or ""
-        if not name or not logo:
+        app_id = item.get("id")
+        name   = (item.get("name") or "").strip()
+        if not app_id or not name:
             continue
 
-        # App ID is embedded in the logo URL: /apps/12345/
-        m = _APP_ID_RE.search(logo)
-        if not m:
-            continue
-        app_id = int(m.group(1))
+        image_url = (
+            item.get("header_image")
+            or f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{app_id}/header.jpg"
+        )
 
         results.append({
             "app_id":    app_id,
             "name":      name,
-            "image_url": f"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{app_id}/header.jpg",
+            "image_url": image_url,
             "store_url": f"https://store.steampowered.com/app/{app_id}/",
         })
         if len(results) >= limit:
