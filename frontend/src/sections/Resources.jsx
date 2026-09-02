@@ -260,27 +260,26 @@ function SkeletonCard() {
 }
 
 const CB_PERIODS = [
-  { key: '1y',  label: '1Y'  },
-  { key: '3y',  label: '3Y'  },
   { key: '5y',  label: '5Y'  },
   { key: '10y', label: '10Y' },
+  { key: '15y', label: '15Y' },
   { key: 'max', label: 'MAX' },
 ]
 
-function fmtTonnes(v) {
+function fmtBn(v) {
   if (v == null) return '—'
-  if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}kt`
-  return `${v.toFixed(0)}t`
+  if (Math.abs(v) >= 1000) return `$${(v / 1000).toFixed(1)}T`
+  return `$${v.toFixed(0)}B`
 }
 
-function fmtNet(v) {
+function fmtNetBn(v) {
   if (v == null) return '—'
   const sign = v >= 0 ? '+' : ''
-  return `${sign}${v.toFixed(1)}t`
+  return `${sign}$${v.toFixed(0)}B`
 }
 
 function CentralBankGoldChart() {
-  const [period, setPeriod] = useState('5y')
+  const [period, setPeriod] = useState('10y')
   const { data, isLoading, error } = useCentralBankGold(period)
 
   return (
@@ -288,21 +287,21 @@ function CentralBankGoldChart() {
       {/* Header */}
       <div className="flex items-start justify-between px-4 pt-4 pb-3">
         <div>
-          <h3 className="text-sm font-bold text-white">Global Central Bank Gold Purchases</h3>
+          <h3 className="text-sm font-bold text-white">Global Central Bank Gold Reserves</h3>
           <p className="text-[10px] text-[#555] uppercase tracking-wider mt-0.5">
-            Net monthly purchases by major central banks · Tonnes · Source: IMF IFS
+            Annual change in gold reserve value · Major central banks · Source: World Bank
           </p>
         </div>
         {data && data.length > 0 && (() => {
           const last = data[data.length - 1]
-          const net = last.net_purchases
+          const net = last.net_bn
           const pos = net >= 0
           return (
             <div className="text-right">
               <p className="text-xl font-bold font-mono" style={{ color: pos ? '#22c55e' : '#ef4444' }}>
-                {fmtNet(net)}
+                {fmtNetBn(net)}
               </p>
-              <p className="text-[10px] text-[#555] mt-0.5">latest month</p>
+              <p className="text-[10px] text-[#555] mt-0.5">{last.time} vs prior year</p>
             </div>
           )
         })()}
@@ -329,7 +328,7 @@ function CentralBankGoldChart() {
       <div className="h-64 px-1">
         {isLoading ? (
           <div className="h-full flex items-center justify-center">
-            <span className="text-[#333] text-sm">Loading IMF data…</span>
+            <span className="text-[#333] text-sm">Loading…</span>
           </div>
         ) : error ? (
           <div className="h-full flex items-center justify-center px-6 text-center">
@@ -343,23 +342,21 @@ function CentralBankGoldChart() {
                 tick={{ fill: '#444', fontSize: 10 }}
                 tickLine={false}
                 axisLine={false}
-                minTickGap={60}
+                minTickGap={40}
               />
-              {/* Net purchases axis (left) */}
               <YAxis
                 yAxisId="net"
                 orientation="left"
                 tick={{ fill: '#444', fontSize: 10 }}
-                width={46}
-                tickFormatter={v => `${v > 0 ? '+' : ''}${v.toFixed(0)}t`}
+                width={52}
+                tickFormatter={v => `${v >= 0 ? '+' : ''}$${v.toFixed(0)}B`}
               />
-              {/* Total reserves axis (right) */}
               <YAxis
                 yAxisId="total"
                 orientation="right"
                 tick={{ fill: '#444', fontSize: 10 }}
                 width={52}
-                tickFormatter={fmtTonnes}
+                tickFormatter={fmtBn}
                 domain={['auto', 'auto']}
               />
               <ReferenceLine yAxisId="net" y={0} stroke="#333" strokeDasharray="3 3" />
@@ -374,29 +371,20 @@ function CentralBankGoldChart() {
                 labelStyle={{ color: '#888', fontSize: '10px', marginBottom: '4px' }}
                 itemStyle={{ color: '#fff' }}
                 formatter={(v, name) => {
-                  if (name === 'net_purchases') return [fmtNet(v), v >= 0 ? '▲ Buying' : '▼ Selling']
-                  if (name === 'total_reserves') return [fmtTonnes(v), 'Total Reserves']
+                  if (name === 'net_bn') return [fmtNetBn(v), v >= 0 ? '▲ Reserve grew' : '▼ Reserve fell']
+                  if (name === 'total_bn') return [fmtBn(v), 'Total Gold Reserve Value']
                   return [v, name]
                 }}
               />
-              <Bar
-                yAxisId="net"
-                dataKey="net_purchases"
-                isAnimationActive={false}
-                maxBarSize={14}
-              >
+              <Bar yAxisId="net" dataKey="net_bn" isAnimationActive={false} maxBarSize={32}>
                 {(data ?? []).map((entry, i) => (
-                  <Cell
-                    key={i}
-                    fill={entry.net_purchases >= 0 ? '#22c55e' : '#ef4444'}
-                    opacity={0.75}
-                  />
+                  <Cell key={i} fill={entry.net_bn >= 0 ? '#22c55e' : '#ef4444'} opacity={0.75} />
                 ))}
               </Bar>
               <Line
                 yAxisId="total"
                 type="monotone"
-                dataKey="total_reserves"
+                dataKey="total_bn"
                 stroke="#FFF97F"
                 strokeWidth={2}
                 dot={false}
@@ -411,15 +399,15 @@ function CentralBankGoldChart() {
       <div className="flex gap-4 px-4 pb-4 pt-2 border-t border-[#1e1e1e] mt-2">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-sm bg-green-500 opacity-75" />
-          <span className="text-[10px] text-[#555]">Net buying (bars)</span>
+          <span className="text-[10px] text-[#555]">Reserve value increased (bars)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-sm bg-red-500 opacity-75" />
-          <span className="text-[10px] text-[#555]">Net selling (bars)</span>
+          <span className="text-[10px] text-[#555]">Reserve value decreased (bars)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-0.5 bg-[#FFF97F]" />
-          <span className="text-[10px] text-[#555]">Total reserves (line)</span>
+          <span className="text-[10px] text-[#555]">Total value (line)</span>
         </div>
       </div>
     </div>

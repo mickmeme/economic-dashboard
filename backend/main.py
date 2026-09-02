@@ -148,7 +148,7 @@ def realestate_suburbs():
 
 
 @app.get("/api/gold/central-bank")
-def central_bank_gold(period: str = Query(default="5y", pattern="^(1y|3y|5y|10y|max)$")):
+def central_bank_gold(period: str = Query(default="10y", pattern="^(5y|10y|15y|max)$")):
     try:
         return get_central_bank_gold(period)
     except Exception as exc:

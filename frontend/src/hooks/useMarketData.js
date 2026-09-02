@@ -125,7 +125,7 @@ export function useNews(category) {
   })
 }
 
-export function useCentralBankGold(period = '5y') {
+export function useCentralBankGold(period = '10y') {
   return useQuery({
     queryKey: ['gold', 'central-bank', period],
     queryFn: () => fetchJson(`${API_BASE}/api/gold/central-bank?period=${period}`),
