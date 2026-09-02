@@ -32,22 +32,26 @@ _lock = threading.Lock()
 CACHE_TTL = 24 * 60 * 60  # weekly data; refresh daily
 
 
+GOLD_CONTRACT = "GOLD - COMMODITY EXCHANGE INC."   # exact 100oz COMEX contract only
+
+
 def _parse_zip(content: bytes) -> list[dict]:
     z = zipfile.ZipFile(io.BytesIO(content))
     rows = []
     with z.open(z.namelist()[0]) as f:
         reader = csv.DictReader(io.TextIOWrapper(f, encoding="utf-8-sig"))
         for row in reader:
-            mkt = row.get("Market_and_Exchange_Names", "")
-            if "GOLD" not in mkt or "COMMODITY EXCHANGE" not in mkt:
+            # Exact match — excludes Micro Gold (10oz) and E-mini Gold
+            if row.get("Market_and_Exchange_Names", "").strip() != GOLD_CONTRACT:
                 continue
             date_str = (row.get("Report_Date_as_YYYY-MM-DD") or "").strip()
             if not date_str:
                 continue
             try:
-                swap_long  = int((row.get("Swap_Positions_Long_All")  or "0").strip())
-                swap_short = int((row.get("Swap__Positions_Short_All") or "0").strip())
-                rows.append({"date": date_str, "swap_long": swap_long, "swap_short": swap_short})
+                mm_long  = int((row.get("M_Money_Positions_Long_All")  or "0").strip())
+                mm_short = int((row.get("M_Money_Positions_Short_All") or "0").strip())
+                rows.append({"date": date_str, "mm_long": mm_long, "mm_short": mm_short,
+                              "mm_net": mm_long - mm_short})
             except (ValueError, TypeError):
                 continue
     return rows
@@ -103,28 +107,26 @@ def get_central_bank_gold(period: str, granularity: str = "w") -> list[dict]:
         return []
 
     if granularity == "m":
-        # Average weekly values per calendar month
         buckets: dict[str, list[int]] = {}
         for row in data:
-            key = row["date"][:7]  # "YYYY-MM"
-            buckets.setdefault(key, []).append(row["swap_long"])
+            key = row["date"][:7]
+            buckets.setdefault(key, []).append(row["mm_net"])
 
         result = []
         prev = None
         for key in sorted(buckets):
-            avg = round(sum(buckets[key]) / len(buckets[key]))
-            long_t = _tonnes(avg)
-            change_t = 0.0 if prev is None else round(long_t - prev, 1)
-            result.append({"time": key, "long_t": long_t, "change_t": change_t})
-            prev = long_t
+            avg_net = round(sum(buckets[key]) / len(buckets[key]))
+            net_t = _tonnes(avg_net)
+            change_t = 0.0 if prev is None else round(net_t - prev, 1)
+            result.append({"time": key, "net_t": net_t, "change_t": change_t})
+            prev = net_t
     else:
-        # Weekly — one point per CFTC report
         result = []
         prev = None
         for row in data:
-            long_t = _tonnes(row["swap_long"])
-            change_t = 0.0 if prev is None else round(long_t - prev, 1)
-            result.append({"time": row["date"], "long_t": long_t, "change_t": change_t})
-            prev = long_t
+            net_t = _tonnes(row["mm_net"])
+            change_t = 0.0 if prev is None else round(net_t - prev, 1)
+            result.append({"time": row["date"], "net_t": net_t, "change_t": change_t})
+            prev = net_t
 
     return result

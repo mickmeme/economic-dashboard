@@ -296,9 +296,9 @@ function CentralBankGoldChart() {
       {/* Header */}
       <div className="flex items-start justify-between px-4 pt-4 pb-3">
         <div>
-          <h3 className="text-sm font-bold text-white">Bank & Dealer Gold Purchases — CFTC COT</h3>
+          <h3 className="text-sm font-bold text-white">Institutional Gold Demand — CFTC COT</h3>
           <p className="text-[10px] text-[#555] uppercase tracking-wider mt-0.5">
-            COMEX swap dealer long position · JPMorgan, Goldman, Citi &amp; peers · Source: CFTC
+            Managed money net long · Hedge funds &amp; large institutions · COMEX gold · Source: CFTC
           </p>
         </div>
         {last && (() => {
@@ -399,8 +399,8 @@ function CentralBankGoldChart() {
                 labelStyle={{ color: '#888', fontSize: '10px', marginBottom: '4px' }}
                 itemStyle={{ color: '#fff' }}
                 formatter={(v, name) => {
-                  if (name === 'change_t') return [fmtChange(v), v >= 0 ? '▲ Added exposure' : '▼ Reduced exposure']
-                  if (name === 'long_t') return [fmtT(v), 'Total long position']
+                  if (name === 'change_t') return [fmtChange(v), v >= 0 ? '▲ Increased buying' : '▼ Reduced buying']
+                  if (name === 'net_t') return [fmtT(v), 'Net long position']
                   return [v, name]
                 }}
               />
@@ -412,7 +412,7 @@ function CentralBankGoldChart() {
               <Line
                 yAxisId="long"
                 type="monotone"
-                dataKey="long_t"
+                dataKey="net_t"
                 stroke="#FFF97F"
                 strokeWidth={2}
                 dot={false}
@@ -436,13 +436,13 @@ function CentralBankGoldChart() {
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-4 h-0.5 bg-[#FFF97F]" />
-            <span className="text-[10px] text-[#555]">Total long (line)</span>
+            <span className="text-[10px] text-[#555]">Net long position (line)</span>
           </div>
         </div>
         <p className="text-[9px] text-[#333] leading-relaxed">
-          Swap Dealer category per CFTC definition — includes major banks acting as gold swap/forward intermediaries.
-          Long position = bank gold exposure held; change = weekly/monthly addition or reduction.
-          1 COMEX contract = 100 troy oz ≈ 3.1 kg.
+          Managed Money (CFTC) = hedge funds, CTAs, and large asset managers reporting to CFTC.
+          Net long = total long contracts minus total short contracts, converted to troy oz equivalents.
+          Rising net long = institutions increasing gold exposure. 1 COMEX contract = 100 troy oz ≈ 3.1 kg.
         </p>
       </div>
     </div>
