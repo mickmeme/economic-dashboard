@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import {
-  ComposedChart, Line, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  ComposedChart, Line, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
-import { useResourcesList, useResourceHistory } from '../hooks/useMarketData'
+import { useResourcesList, useResourceHistory, useCentralBankGold } from '../hooks/useMarketData'
 
 const PERIODS = [
   { key: '1d', label: '1D' },
@@ -259,6 +259,173 @@ function SkeletonCard() {
   )
 }
 
+const CB_PERIODS = [
+  { key: '1y',  label: '1Y'  },
+  { key: '3y',  label: '3Y'  },
+  { key: '5y',  label: '5Y'  },
+  { key: '10y', label: '10Y' },
+  { key: 'max', label: 'MAX' },
+]
+
+function fmtTonnes(v) {
+  if (v == null) return '—'
+  if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}kt`
+  return `${v.toFixed(0)}t`
+}
+
+function fmtNet(v) {
+  if (v == null) return '—'
+  const sign = v >= 0 ? '+' : ''
+  return `${sign}${v.toFixed(1)}t`
+}
+
+function CentralBankGoldChart() {
+  const [period, setPeriod] = useState('5y')
+  const { data, isLoading, error } = useCentralBankGold(period)
+
+  return (
+    <div className="bg-[#141414] border border-[#222] rounded-lg flex flex-col">
+      {/* Header */}
+      <div className="flex items-start justify-between px-4 pt-4 pb-3">
+        <div>
+          <h3 className="text-sm font-bold text-white">Global Central Bank Gold Purchases</h3>
+          <p className="text-[10px] text-[#555] uppercase tracking-wider mt-0.5">
+            Net monthly purchases by major central banks · Tonnes · Source: IMF IFS
+          </p>
+        </div>
+        {data && data.length > 0 && (() => {
+          const last = data[data.length - 1]
+          const net = last.net_purchases
+          const pos = net >= 0
+          return (
+            <div className="text-right">
+              <p className="text-xl font-bold font-mono" style={{ color: pos ? '#22c55e' : '#ef4444' }}>
+                {fmtNet(net)}
+              </p>
+              <p className="text-[10px] text-[#555] mt-0.5">latest month</p>
+            </div>
+          )
+        })()}
+      </div>
+
+      {/* Period selector */}
+      <div className="flex gap-1 px-4 mb-3">
+        {CB_PERIODS.map(p => (
+          <button
+            key={p.key}
+            onClick={() => setPeriod(p.key)}
+            className={`text-xs px-2.5 py-1 rounded font-semibold uppercase tracking-wider transition-all duration-150 ${
+              period === p.key
+                ? 'bg-[#FFF97F] text-black'
+                : 'bg-[#1A1A1A] text-[#555] hover:text-[#999] hover:bg-[#222]'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Chart */}
+      <div className="h-64 px-1">
+        {isLoading ? (
+          <div className="h-full flex items-center justify-center">
+            <span className="text-[#333] text-sm">Loading IMF data…</span>
+          </div>
+        ) : error ? (
+          <div className="h-full flex items-center justify-center px-6 text-center">
+            <span className="text-red-400 text-sm">Failed to load central bank data</span>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 4 }}>
+              <XAxis
+                dataKey="time"
+                tick={{ fill: '#444', fontSize: 10 }}
+                tickLine={false}
+                axisLine={false}
+                minTickGap={60}
+              />
+              {/* Net purchases axis (left) */}
+              <YAxis
+                yAxisId="net"
+                orientation="left"
+                tick={{ fill: '#444', fontSize: 10 }}
+                width={46}
+                tickFormatter={v => `${v > 0 ? '+' : ''}${v.toFixed(0)}t`}
+              />
+              {/* Total reserves axis (right) */}
+              <YAxis
+                yAxisId="total"
+                orientation="right"
+                tick={{ fill: '#444', fontSize: 10 }}
+                width={52}
+                tickFormatter={fmtTonnes}
+                domain={['auto', 'auto']}
+              />
+              <ReferenceLine yAxisId="net" y={0} stroke="#333" strokeDasharray="3 3" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#141414',
+                  border: '1px solid #2A2A2A',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  padding: '8px 12px',
+                }}
+                labelStyle={{ color: '#888', fontSize: '10px', marginBottom: '4px' }}
+                itemStyle={{ color: '#fff' }}
+                formatter={(v, name) => {
+                  if (name === 'net_purchases') return [fmtNet(v), v >= 0 ? '▲ Buying' : '▼ Selling']
+                  if (name === 'total_reserves') return [fmtTonnes(v), 'Total Reserves']
+                  return [v, name]
+                }}
+              />
+              <Bar
+                yAxisId="net"
+                dataKey="net_purchases"
+                isAnimationActive={false}
+                maxBarSize={14}
+              >
+                {(data ?? []).map((entry, i) => (
+                  <Cell
+                    key={i}
+                    fill={entry.net_purchases >= 0 ? '#22c55e' : '#ef4444'}
+                    opacity={0.75}
+                  />
+                ))}
+              </Bar>
+              <Line
+                yAxisId="total"
+                type="monotone"
+                dataKey="total_reserves"
+                stroke="#FFF97F"
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={false}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* Legend */}
+      <div className="flex gap-4 px-4 pb-4 pt-2 border-t border-[#1e1e1e] mt-2">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-sm bg-green-500 opacity-75" />
+          <span className="text-[10px] text-[#555]">Net buying (bars)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-sm bg-red-500 opacity-75" />
+          <span className="text-[10px] text-[#555]">Net selling (bars)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-0.5 bg-[#FFF97F]" />
+          <span className="text-[10px] text-[#555]">Total reserves (line)</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Resources() {
   const { data: resources, isLoading, error } = useResourcesList()
 
@@ -288,9 +455,12 @@ export default function Resources() {
         }
       </div>
 
+      <CentralBankGoldChart />
+
       <p className="text-[#333] text-xs pb-2">
         Supply depletion figures are geological estimates based on proven economically recoverable reserves vs cumulative historical production.
         Coal price uses Peabody Energy (BTU) as a coal sector market indicator — no standardised coal futures are available on Yahoo Finance.
+        Central bank gold data covers ~28 major holders; some countries (e.g. Russia) have reporting delays or gaps post-2022.
         All figures subject to revision as exploration and extraction technology evolves.
       </p>
     </div>

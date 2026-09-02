@@ -12,6 +12,7 @@ from services.resources import get_resources_list, get_resource_history, VALID_K
 from services.bonds import get_bonds, get_bond_history, BONDS
 from services.news import get_news, VALID_CATEGORIES as NEWS_CATEGORIES
 from services.steam import get_new_releases as steam_get_new_releases
+from services.central_bank_gold import get_central_bank_gold
 
 app = FastAPI(title="Economic Dashboard API")
 
@@ -144,6 +145,14 @@ def realestate_suburbs():
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Real estate data unavailable: {exc}")
+
+
+@app.get("/api/gold/central-bank")
+def central_bank_gold(period: str = Query(default="5y", pattern="^(1y|3y|5y|10y|max)$")):
+    try:
+        return get_central_bank_gold(period)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Central bank gold data unavailable: {exc}")
 
 
 @app.get("/api/steam/newreleases")
