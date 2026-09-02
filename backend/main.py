@@ -148,11 +148,14 @@ def realestate_suburbs():
 
 
 @app.get("/api/gold/central-bank")
-def central_bank_gold(period: str = Query(default="10y", pattern="^(5y|10y|15y|max)$")):
+def central_bank_gold(
+    period: str = Query(default="1y", pattern="^(1y|3y|5y|10y|max)$"),
+    granularity: str = Query(default="w", pattern="^(w|m)$"),
+):
     try:
-        return get_central_bank_gold(period)
+        return get_central_bank_gold(period, granularity)
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Central bank gold data unavailable: {exc}")
+        raise HTTPException(status_code=503, detail=f"Bank gold data unavailable: {exc}")
 
 
 @app.get("/api/steam/newreleases")

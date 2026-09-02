@@ -260,79 +260,107 @@ function SkeletonCard() {
 }
 
 const CB_PERIODS = [
+  { key: '1y',  label: '1Y'  },
+  { key: '3y',  label: '3Y'  },
   { key: '5y',  label: '5Y'  },
   { key: '10y', label: '10Y' },
-  { key: '15y', label: '15Y' },
   { key: 'max', label: 'MAX' },
 ]
 
-function fmtBn(v) {
+const CB_GRAINS = [
+  { key: 'w', label: 'Weekly' },
+  { key: 'm', label: 'Monthly' },
+]
+
+function fmtT(v) {
   if (v == null) return '—'
-  if (Math.abs(v) >= 1000) return `$${(v / 1000).toFixed(1)}T`
-  return `$${v.toFixed(0)}B`
+  if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}kt`
+  return `${v.toFixed(0)}t`
 }
 
-function fmtNetBn(v) {
+function fmtChange(v) {
   if (v == null) return '—'
   const sign = v >= 0 ? '+' : ''
-  return `${sign}$${v.toFixed(0)}B`
+  return `${sign}${v.toFixed(1)}t`
 }
 
 function CentralBankGoldChart() {
-  const [period, setPeriod] = useState('10y')
-  const { data, isLoading, error } = useCentralBankGold(period)
+  const [period, setPeriod] = useState('1y')
+  const [grain, setGrain] = useState('w')
+  const { data, isLoading, error } = useCentralBankGold(period, grain)
+
+  const last = data && data.length > 0 ? data[data.length - 1] : null
 
   return (
     <div className="bg-[#141414] border border-[#222] rounded-lg flex flex-col">
       {/* Header */}
       <div className="flex items-start justify-between px-4 pt-4 pb-3">
         <div>
-          <h3 className="text-sm font-bold text-white">Global Central Bank Gold Reserves</h3>
+          <h3 className="text-sm font-bold text-white">Bank & Dealer Gold Purchases — CFTC COT</h3>
           <p className="text-[10px] text-[#555] uppercase tracking-wider mt-0.5">
-            Annual change in gold reserve value · Major central banks · Source: World Bank
+            COMEX swap dealer long position · JPMorgan, Goldman, Citi &amp; peers · Source: CFTC
           </p>
         </div>
-        {data && data.length > 0 && (() => {
-          const last = data[data.length - 1]
-          const net = last.net_bn
-          const pos = net >= 0
+        {last && (() => {
+          const pos = last.change_t >= 0
           return (
             <div className="text-right">
               <p className="text-xl font-bold font-mono" style={{ color: pos ? '#22c55e' : '#ef4444' }}>
-                {fmtNetBn(net)}
+                {fmtChange(last.change_t)}
               </p>
-              <p className="text-[10px] text-[#555] mt-0.5">{last.time} vs prior year</p>
+              <p className="text-[10px] text-[#555] mt-0.5">{last.time}</p>
             </div>
           )
         })()}
       </div>
 
-      {/* Period selector */}
-      <div className="flex gap-1 px-4 mb-3">
-        {CB_PERIODS.map(p => (
-          <button
-            key={p.key}
-            onClick={() => setPeriod(p.key)}
-            className={`text-xs px-2.5 py-1 rounded font-semibold uppercase tracking-wider transition-all duration-150 ${
-              period === p.key
-                ? 'bg-[#FFF97F] text-black'
-                : 'bg-[#1A1A1A] text-[#555] hover:text-[#999] hover:bg-[#222]'
-            }`}
-          >
-            {p.label}
-          </button>
-        ))}
+      {/* Controls row */}
+      <div className="flex items-center gap-3 px-4 mb-3">
+        {/* Period */}
+        <div className="flex gap-1">
+          {CB_PERIODS.map(p => (
+            <button
+              key={p.key}
+              onClick={() => setPeriod(p.key)}
+              className={`text-xs px-2.5 py-1 rounded font-semibold uppercase tracking-wider transition-all duration-150 ${
+                period === p.key
+                  ? 'bg-[#FFF97F] text-black'
+                  : 'bg-[#1A1A1A] text-[#555] hover:text-[#999] hover:bg-[#222]'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {/* Divider */}
+        <div className="h-4 w-px bg-[#2a2a2a]" />
+        {/* Granularity */}
+        <div className="flex gap-1">
+          {CB_GRAINS.map(g => (
+            <button
+              key={g.key}
+              onClick={() => setGrain(g.key)}
+              className={`text-xs px-2.5 py-1 rounded font-semibold uppercase tracking-wider transition-all duration-150 ${
+                grain === g.key
+                  ? 'bg-[#FFF97F] text-black'
+                  : 'bg-[#1A1A1A] text-[#555] hover:text-[#999] hover:bg-[#222]'
+              }`}
+            >
+              {g.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Chart */}
       <div className="h-64 px-1">
         {isLoading ? (
           <div className="h-full flex items-center justify-center">
-            <span className="text-[#333] text-sm">Loading…</span>
+            <span className="text-[#333] text-sm">Loading CFTC data… (first load ~20s)</span>
           </div>
         ) : error ? (
           <div className="h-full flex items-center justify-center px-6 text-center">
-            <span className="text-red-400 text-sm">Failed to load central bank data</span>
+            <span className="text-red-400 text-sm">Failed to load CFTC data</span>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
@@ -342,24 +370,24 @@ function CentralBankGoldChart() {
                 tick={{ fill: '#444', fontSize: 10 }}
                 tickLine={false}
                 axisLine={false}
-                minTickGap={40}
+                minTickGap={50}
               />
               <YAxis
-                yAxisId="net"
+                yAxisId="chg"
                 orientation="left"
                 tick={{ fill: '#444', fontSize: 10 }}
-                width={52}
-                tickFormatter={v => `${v >= 0 ? '+' : ''}$${v.toFixed(0)}B`}
+                width={46}
+                tickFormatter={v => `${v >= 0 ? '+' : ''}${v.toFixed(0)}t`}
               />
               <YAxis
-                yAxisId="total"
+                yAxisId="long"
                 orientation="right"
                 tick={{ fill: '#444', fontSize: 10 }}
-                width={52}
-                tickFormatter={fmtBn}
+                width={46}
+                tickFormatter={fmtT}
                 domain={['auto', 'auto']}
               />
-              <ReferenceLine yAxisId="net" y={0} stroke="#333" strokeDasharray="3 3" />
+              <ReferenceLine yAxisId="chg" y={0} stroke="#333" strokeDasharray="3 3" />
               <Tooltip
                 contentStyle={{
                   backgroundColor: '#141414',
@@ -371,20 +399,20 @@ function CentralBankGoldChart() {
                 labelStyle={{ color: '#888', fontSize: '10px', marginBottom: '4px' }}
                 itemStyle={{ color: '#fff' }}
                 formatter={(v, name) => {
-                  if (name === 'net_bn') return [fmtNetBn(v), v >= 0 ? '▲ Reserve grew' : '▼ Reserve fell']
-                  if (name === 'total_bn') return [fmtBn(v), 'Total Gold Reserve Value']
+                  if (name === 'change_t') return [fmtChange(v), v >= 0 ? '▲ Added exposure' : '▼ Reduced exposure']
+                  if (name === 'long_t') return [fmtT(v), 'Total long position']
                   return [v, name]
                 }}
               />
-              <Bar yAxisId="net" dataKey="net_bn" isAnimationActive={false} maxBarSize={32}>
+              <Bar yAxisId="chg" dataKey="change_t" isAnimationActive={false} maxBarSize={20}>
                 {(data ?? []).map((entry, i) => (
-                  <Cell key={i} fill={entry.net_bn >= 0 ? '#22c55e' : '#ef4444'} opacity={0.75} />
+                  <Cell key={i} fill={entry.change_t >= 0 ? '#22c55e' : '#ef4444'} opacity={0.75} />
                 ))}
               </Bar>
               <Line
-                yAxisId="total"
+                yAxisId="long"
                 type="monotone"
-                dataKey="total_bn"
+                dataKey="long_t"
                 stroke="#FFF97F"
                 strokeWidth={2}
                 dot={false}
@@ -395,20 +423,27 @@ function CentralBankGoldChart() {
         )}
       </div>
 
-      {/* Legend */}
-      <div className="flex gap-4 px-4 pb-4 pt-2 border-t border-[#1e1e1e] mt-2">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm bg-green-500 opacity-75" />
-          <span className="text-[10px] text-[#555]">Reserve value increased (bars)</span>
+      {/* Legend + note */}
+      <div className="px-4 pb-4 pt-2 border-t border-[#1e1e1e] mt-2 space-y-2">
+        <div className="flex gap-4">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm bg-green-500 opacity-75" />
+            <span className="text-[10px] text-[#555]">Added long (bars)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm bg-red-500 opacity-75" />
+            <span className="text-[10px] text-[#555]">Reduced long (bars)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-0.5 bg-[#FFF97F]" />
+            <span className="text-[10px] text-[#555]">Total long (line)</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm bg-red-500 opacity-75" />
-          <span className="text-[10px] text-[#555]">Reserve value decreased (bars)</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-0.5 bg-[#FFF97F]" />
-          <span className="text-[10px] text-[#555]">Total value (line)</span>
-        </div>
+        <p className="text-[9px] text-[#333] leading-relaxed">
+          Swap Dealer category per CFTC definition — includes major banks acting as gold swap/forward intermediaries.
+          Long position = bank gold exposure held; change = weekly/monthly addition or reduction.
+          1 COMEX contract = 100 troy oz ≈ 3.1 kg.
+        </p>
       </div>
     </div>
   )
